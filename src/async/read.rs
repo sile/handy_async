@@ -107,6 +107,7 @@ pub trait ReadPattern: Pattern {
 }
 impl<T> ReadPattern for T where T: Pattern {}
 
+#[derive(Debug)]
 pub struct StatefulReader<R, T> {
     reader: R,
     pub state: T,
