@@ -1,5 +1,4 @@
 extern crate futures;
-extern crate tokio_core;
 extern crate byteorder;
 
 use std::io;

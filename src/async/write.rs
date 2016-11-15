@@ -1,18 +1,23 @@
 use std::io;
-use tokio_core;
-use tokio_core::io::WriteAll;
-use tokio_core::io::IoFuture;
 use futures::Poll;
 use futures::Async;
 use futures::Future;
 
 use pattern;
+use super::Window;
+use super::IoFuture;
 
 pub trait AsyncWrite: Sized + io::Write {
+    fn async_write<T>(self, buf: T) -> Write<Self, T>
+        where T: AsRef<[u8]>
+    {
+        Write(Some((self, buf)))
+    }
+
     fn async_write_all<T>(self, buf: T) -> WriteAll<Self, T>
         where T: AsRef<[u8]>
     {
-        tokio_core::io::write_all(self, buf)
+        WriteAll(self.async_write(Window::new(buf)))
     }
     fn async_write_pattern<P>(self, pattern: P) -> P::Future
         where P: WritePattern<Self>
@@ -21,6 +26,51 @@ pub trait AsyncWrite: Sized + io::Write {
     }
 }
 impl<T> AsyncWrite for T where T: io::Write {}
+
+pub struct Write<W, B>(Option<(W, B)>);
+impl<W, B> Future for Write<W, B>
+    where W: io::Write,
+          B: AsRef<[u8]>
+{
+    type Item = (W, B, usize);
+    type Error = io::Error;
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        let (mut writer, buf) = self.0.take().expect("Cannot poll Write twice");
+        match writer.write(buf.as_ref()) {
+            Ok(write_size) => Ok(Async::Ready((writer, buf, write_size))),
+            Err(e) => {
+                if e.kind() == io::ErrorKind::WouldBlock {
+                    self.0 = Some((writer, buf));
+                    Ok(Async::NotReady)
+                } else {
+                    Err(e)
+                }
+            }
+        }
+    }
+}
+
+pub struct WriteAll<W, B>(Write<W, Window<B>>);
+impl<W, B> Future for WriteAll<W, B>
+    where W: io::Write,
+          B: AsRef<[u8]>
+{
+    type Item = (W, B);
+    type Error = io::Error;
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        if let Async::Ready((writer, mut buf, write_size)) = self.0.poll()? {
+            buf.offset += write_size;
+            if buf.offset == buf.inner.as_ref().len() {
+                Ok(Async::Ready((writer, buf.inner)))
+            } else {
+                self.0 = writer.async_write(buf);
+                Ok(Async::NotReady)
+            }
+        } else {
+            Ok(Async::NotReady)
+        }
+    }
+}
 
 pub trait WritePattern<W> {
     type Output;

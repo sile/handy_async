@@ -1,22 +1,30 @@
 use std::io;
 use std::marker::PhantomData;
-use tokio_core;
-use tokio_core::io::ReadExact;
-use tokio_core::io::IoFuture;
 use futures::Poll;
 use futures::Async;
 use futures::Future;
 
 use pattern;
+use super::Window;
+use super::IoFuture;
+
+const READ_TO_END_BUF_SIZE: usize = 1024;
 
 pub trait AsyncRead: Sized + io::Read {
+    fn async_read<T>(self, buf: T) -> Read<Self, T>
+        where T: AsMut<[u8]>
+    {
+        Read::new(self, buf)
+    }
     fn async_read_exact<T>(self, buf: T) -> ReadExact<Self, T>
         where T: AsMut<[u8]>
     {
-        tokio_core::io::read_exact(self, buf)
+        ReadExact(self.async_read(Window::new(buf)))
     }
-    fn async_read_to_end(self, buf: Vec<u8>) -> tokio_core::io::ReadToEnd<Self> {
-        tokio_core::io::read_to_end(self, buf)
+    fn async_read_to_end(self, mut buf: Vec<u8>) -> ReadToEnd<Self> {
+        let offset = buf.len();
+        buf.resize(offset + READ_TO_END_BUF_SIZE, 0);
+        ReadToEnd(self.async_read(Window::with_offset(buf, offset)))
     }
     fn async_read_pattern<P>(self, pattern: P) -> P::Future
         where P: ReadPattern<Self>
@@ -25,6 +33,92 @@ pub trait AsyncRead: Sized + io::Read {
     }
 }
 impl<T> AsyncRead for T where T: Sized + io::Read {}
+
+pub struct Read<R, B> {
+    inner: Option<(R, B)>,
+}
+impl<R, B> Read<R, B>
+    where R: io::Read,
+          B: AsMut<[u8]>
+{
+    fn new(reader: R, buf: B) -> Self {
+        Read { inner: Some((reader, buf)) }
+    }
+}
+impl<R, B> Future for Read<R, B>
+    where R: io::Read,
+          B: AsMut<[u8]>
+{
+    type Item = (R, B, usize);
+    type Error = io::Error;
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        let (mut reader, mut buf) = self.inner.take().expect("Cannot poll Read twice");
+        match reader.read(buf.as_mut()) {
+            Ok(read_size) => Ok(Async::Ready((reader, buf, read_size))),
+            Err(e) => {
+                if e.kind() == io::ErrorKind::WouldBlock {
+                    self.inner = Some((reader, buf));
+                    Ok(Async::NotReady)
+                } else {
+                    Err(e)
+                }
+            }
+        }
+    }
+}
+
+pub struct ReadExact<R, B>(Read<R, Window<B>>);
+impl<R, B> Future for ReadExact<R, B>
+    where R: io::Read,
+          B: AsMut<[u8]>
+{
+    type Item = (R, B);
+    type Error = io::Error;
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        if let Async::Ready((reader, mut buf, read_size)) = self.0.poll()? {
+            if read_size == 0 {
+                let e = io::Error::new(io::ErrorKind::UnexpectedEof, "Unexpected EOF in ReadExact");
+                Err(e)
+            } else {
+                buf.offset += read_size;
+                if buf.offset == buf.inner.as_mut().len() {
+                    Ok(Async::Ready((reader, buf.inner)))
+                } else {
+                    self.0 = reader.async_read(buf);
+                    Ok(Async::NotReady)
+                }
+            }
+        } else {
+            Ok(Async::NotReady)
+        }
+    }
+}
+
+pub struct ReadToEnd<R>(Read<R, Window<Vec<u8>>>);
+impl<R> Future for ReadToEnd<R>
+    where R: io::Read
+{
+    type Item = (R, Vec<u8>);
+    type Error = io::Error;
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        if let Async::Ready((reader, mut buf, read_size)) = self.0.poll()? {
+            if read_size == 0 {
+                buf.inner.truncate(buf.offset);
+                Ok(Async::Ready((reader, buf.inner)))
+            } else {
+                buf.offset += read_size;
+                if buf.offset == buf.inner.len() {
+                    let new_len = buf.inner.len() + READ_TO_END_BUF_SIZE;
+                    buf.inner.resize(new_len, 0);
+                }
+                self.0 = reader.async_read(buf);
+                Ok(Async::NotReady)
+            }
+        } else {
+            Ok(Async::NotReady)
+        }
+    }
+}
 
 pub trait ReadPattern<R: io::Read> {
     type Output;

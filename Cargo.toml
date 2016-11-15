@@ -5,5 +5,4 @@ authors = ["Takeru Ohta <phjgt308@gmail.com>"]
 
 [dependencies]
 futures = "0.1"
-tokio-core = "0.1"
 byteorder = "0.5"
