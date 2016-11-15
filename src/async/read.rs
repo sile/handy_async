@@ -1,185 +1,213 @@
 use std::io;
-use futures;
+use std::marker::PhantomData;
+use tokio_core;
+use tokio_core::io::ReadExact;
+use tokio_core::io::IoFuture;
 use futures::Poll;
 use futures::Async;
 use futures::Future;
 
-use buffer::BufferLike;
-use pattern::Pattern;
+use pattern;
 
-pub trait Readable: Sized + io::Read {
-    type Result: Future<Item = Self, Error = io::Error>;
-    fn readable(self) -> Self::Result;
-}
-impl<'a> Readable for &'a [u8] {
-    type Result = futures::Finished<Self, io::Error>;
-    fn readable(self) -> Self::Result {
-        futures::finished(self)
-    }
-}
-impl<T> Readable for io::Cursor<T>
-    where T: AsRef<[u8]>
-{
-    type Result = futures::Finished<Self, io::Error>;
-    fn readable(self) -> Self::Result {
-        futures::finished(self)
-    }
-}
-
-pub fn read_exact<R, T>(reader: R, buf: T) -> ReadExact<R, T>
-    where R: Readable,
-          T: AsMut<[u8]>
-{
-    ReadExact {
-        reader: reader.readable(),
-        buffer: Some(buf),
-        offset: 0,
-    }
-}
-
-pub struct ReadExact<R, T>
-    where R: Readable
-{
-    reader: R::Result,
-    buffer: Option<T>,
-    offset: usize,
-}
-impl<R, T> Future for ReadExact<R, T>
-    where R: Readable,
-          T: AsMut<[u8]>
-{
-    type Item = (R, T);
-    type Error = io::Error;
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        if let Async::Ready(mut reader) = try!(self.reader.poll()) {
-            let mut buf = self.buffer.take().unwrap();
-            let read_size = try!(reader.read(&mut buf.as_mut()[self.offset..]));
-            self.offset += read_size;
-            if read_size == 0 {
-                let description = format!("Expected: {} bytes", buf.as_mut().len());
-                Err(io::Error::new(io::ErrorKind::UnexpectedEof, description))
-            } else if self.offset == buf.as_mut().len() {
-                Ok(Async::Ready((reader, buf)))
-            } else {
-                self.reader = reader.readable();
-                self.buffer = Some(buf);
-                Ok(Async::NotReady)
-            }
-        } else {
-            Ok(Async::NotReady)
-        }
-    }
-}
-
-pub fn read_value<R, T>(reader: R, buf: T) -> ReadValue<R, T>
-    where R: Readable,
-          T: BufferLike
-{
-    ReadValue { future: read_exact(reader, buf) }
-}
-
-pub struct ReadValue<R, T>
-    where R: Readable
-{
-    future: ReadExact<R, T>,
-}
-impl<R, T> Future for ReadValue<R, T>
-    where R: Readable,
-          T: BufferLike
-{
-    type Item = (R, T::Value);
-    type Error = io::Error;
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        if let Async::Ready((reader, buf)) = try!(self.future.poll()) {
-            Ok(Async::Ready((reader, buf.into_value())))
-        } else {
-            Ok(Async::NotReady)
-        }
-    }
-}
-
-pub trait ReadPattern: Pattern {
-    fn read_pattern<R>(self, reader: R) -> ReadValue<R, Self::Buffer>
-        where R: Readable
+pub trait AsyncRead: Sized + io::Read {
+    fn async_read_exact<T>(self, buf: T) -> ReadExact<Self, T>
+        where T: AsMut<[u8]>
     {
-        read_value(reader, self.into_buffer())
+        tokio_core::io::read_exact(self, buf)
     }
-}
-impl<T> ReadPattern for T where T: Pattern {}
-
-#[derive(Debug)]
-pub struct StatefulReader<R, T> {
-    reader: R,
-    pub state: T,
-}
-impl<R, T> StatefulReader<R, T>
-    where R: Readable
-{
-    pub fn new(reader: R, state: T) -> Self {
-        StatefulReader {
-            reader: reader,
-            state: state,
-        }
+    fn async_read_to_end(self, buf: Vec<u8>) -> tokio_core::io::ReadToEnd<Self> {
+        tokio_core::io::read_to_end(self, buf)
     }
-    pub fn read_exact<B>(self, buf: B) -> ReadExact<Self, B>
-        where B: AsMut<[u8]>
-    {
-        read_exact(self, buf)
-    }
-    pub fn read_pattern<P>(self, pattern: P) -> ReadValue<Self, P::Buffer>
-        where P: Pattern
+    fn async_read_pattern<P>(self, pattern: P) -> P::Future
+        where P: ReadPattern<Self>
     {
         pattern.read_pattern(self)
     }
 }
-impl<R, T> io::Read for StatefulReader<R, T>
-    where R: io::Read
-{
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.reader.read(buf)
+impl<T> AsyncRead for T where T: Sized + io::Read {}
+
+pub trait ReadPattern<R: io::Read> {
+    type Output;
+    type Future: Future<Item = (R, Self::Output), Error = io::Error>;
+    fn read_pattern(self, reader: R) -> Self::Future;
+}
+
+pub struct ReadFixed<R, B, P> {
+    read: ReadExact<R, B>,
+    _pattern: PhantomData<P>,
+}
+impl<R: io::Read, B: AsMut<[u8]>, P: pattern::read::Fixed> ReadFixed<R, B, P> {
+    pub fn new(read: ReadExact<R, B>) -> Self {
+        ReadFixed {
+            read: read,
+            _pattern: PhantomData,
+        }
     }
 }
-impl<R, T> Readable for StatefulReader<R, T>
-    where R: Readable
-{
-    type Result = StatefulReadable<R, T>;
-    fn readable(self) -> Self::Result {
-        StatefulReadable {
-            reader: self.reader.readable(),
-            state: Some(self.state),
+impl<R: io::Read, B: AsMut<[u8]>, P: pattern::read::Fixed> Future for ReadFixed<R, B, P> {
+    type Item = (R, P::Output);
+    type Error = io::Error;
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        if let Async::Ready((r, mut b)) = self.read.poll()? {
+            Ok(Async::Ready((r, P::convert(b.as_mut()))))
+        } else {
+            Ok(Async::NotReady)
         }
     }
 }
 
-pub struct StatefulReadable<R, T>
-    where R: Readable
-{
-    reader: R::Result,
-    state: Option<T>,
-}
-impl<R, T> Future for StatefulReadable<R, T>
-    where R: Readable
-{
-    type Item = StatefulReader<R, T>;
-    type Error = io::Error;
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        if let Async::Ready(reader) = try!(self.reader.poll()) {
-            Ok(Async::Ready(StatefulReader::new(reader, self.state.take().unwrap())))
-        } else {
-            Ok(Async::NotReady)
+macro_rules! impl_fixed_read_pattern {
+    ($p:ident, $b:expr) => {
+        impl<R: io::Read> ReadPattern<R> for pattern::read::$p {
+            type Output = <pattern::read::$p as pattern::read::Fixed>::Output;
+            type Future = ReadFixed<R, [u8; $b], Self>;
+            fn read_pattern(self, reader: R) -> Self::Future {
+                ReadFixed::new(reader.async_read_exact([0; $b]))
+            }
         }
+    }
+}
+impl_fixed_read_pattern!(U8, 1);
+impl_fixed_read_pattern!(U16le, 2);
+impl_fixed_read_pattern!(U16be, 2);
+impl_fixed_read_pattern!(U24le, 3);
+impl_fixed_read_pattern!(U24be, 3);
+impl_fixed_read_pattern!(U32le, 4);
+impl_fixed_read_pattern!(U32be, 4);
+impl_fixed_read_pattern!(U64le, 8);
+impl_fixed_read_pattern!(U64be, 8);
+impl_fixed_read_pattern!(I8, 1);
+impl_fixed_read_pattern!(I16le, 2);
+impl_fixed_read_pattern!(I16be, 2);
+impl_fixed_read_pattern!(I24le, 3);
+impl_fixed_read_pattern!(I24be, 3);
+impl_fixed_read_pattern!(I32le, 4);
+impl_fixed_read_pattern!(I32be, 4);
+impl_fixed_read_pattern!(I64le, 8);
+impl_fixed_read_pattern!(I64be, 8);
+
+impl<R: io::Read, P0, P1> ReadPattern<R> for (P0, P1)
+    where P0: ReadPattern<R> + Send + 'static,
+          P0::Output: Send + 'static,
+          P0::Future: Send + 'static,
+          P1: ReadPattern<R> + Send + 'static,
+          P1::Output: Send + 'static,
+          P1::Future: Send + 'static
+{
+    type Output = (P0::Output, P1::Output);
+    type Future = IoFuture<(R, Self::Output)>;
+    fn read_pattern(self, reader: R) -> Self::Future {
+        let (p0, p1) = self;
+        p0.read_pattern(reader)
+            .and_then(move |(reader, o0)| {
+                p1.read_pattern(reader).map(|(reader, o1)| (reader, (o0, o1)))
+            })
+            .boxed()
+    }
+}
+
+impl<R: io::Read, P0, P1, P2> ReadPattern<R> for (P0, P1, P2)
+    where P0: ReadPattern<R> + Send + 'static,
+          P0::Output: Send + 'static,
+          P0::Future: Send + 'static,
+          P1: ReadPattern<R> + Send + 'static,
+          P1::Output: Send + 'static,
+          P1::Future: Send + 'static,
+          P2: ReadPattern<R> + Send + 'static,
+          P2::Output: Send + 'static,
+          P2::Future: Send + 'static
+{
+    type Output = (P0::Output, P1::Output, P2::Output);
+    type Future = IoFuture<(R, Self::Output)>;
+    fn read_pattern(self, reader: R) -> Self::Future {
+        let (p0, p1, p2) = self;
+        p0.read_pattern(reader)
+            .and_then(move |(reader, o0)| {
+                p1.read_pattern(reader).and_then(move |(reader, o1)| {
+                    p2.read_pattern(reader).map(|(reader, o2)| (reader, (o0, o1, o2)))
+                })
+            })
+            .boxed()
+    }
+}
+
+impl<R: io::Read, P0, P1, P2, P3> ReadPattern<R> for (P0, P1, P2, P3)
+    where P0: ReadPattern<R> + Send + 'static,
+          P0::Output: Send + 'static,
+          P0::Future: Send + 'static,
+          P1: ReadPattern<R> + Send + 'static,
+          P1::Output: Send + 'static,
+          P1::Future: Send + 'static,
+          P2: ReadPattern<R> + Send + 'static,
+          P2::Output: Send + 'static,
+          P2::Future: Send + 'static,
+          P3: ReadPattern<R> + Send + 'static,
+          P3::Output: Send + 'static,
+          P3::Future: Send + 'static
+{
+    type Output = (P0::Output, P1::Output, P2::Output, P3::Output);
+    type Future = IoFuture<(R, Self::Output)>;
+    fn read_pattern(self, reader: R) -> Self::Future {
+        let (p0, p1, p2, p3) = self;
+        p0.read_pattern(reader)
+            .and_then(move |(reader, o0)| {
+                p1.read_pattern(reader).and_then(move |(reader, o1)| {
+                    p2.read_pattern(reader).and_then(move |(reader, o2)| {
+                        p3.read_pattern(reader).map(|(reader, o3)| (reader, (o0, o1, o2, o3)))
+                    })
+                })
+            })
+            .boxed()
+    }
+}
+
+impl<R: io::Read, P0, P1, P2, P3, P4> ReadPattern<R> for (P0, P1, P2, P3, P4)
+    where P0: ReadPattern<R> + Send + 'static,
+          P0::Output: Send + 'static,
+          P0::Future: Send + 'static,
+          P1: ReadPattern<R> + Send + 'static,
+          P1::Output: Send + 'static,
+          P1::Future: Send + 'static,
+          P2: ReadPattern<R> + Send + 'static,
+          P2::Output: Send + 'static,
+          P2::Future: Send + 'static,
+          P3: ReadPattern<R> + Send + 'static,
+          P3::Output: Send + 'static,
+          P3::Future: Send + 'static,
+          P4: ReadPattern<R> + Send + 'static,
+          P4::Output: Send + 'static,
+          P4::Future: Send + 'static
+{
+    type Output = (P0::Output, P1::Output, P2::Output, P3::Output, P4::Output);
+    type Future = IoFuture<(R, Self::Output)>;
+    fn read_pattern(self, reader: R) -> Self::Future {
+        let (p0, p1, p2, p3, p4) = self;
+        p0.read_pattern(reader)
+            .and_then(move |(reader, o0)| {
+                p1.read_pattern(reader).and_then(move |(reader, o1)| {
+                    p2.read_pattern(reader).and_then(move |(reader, o2)| {
+                        p3.read_pattern(reader).and_then(move |(reader, o3)| {
+                            p4.read_pattern(reader)
+                                .map(|(reader, o4)| (reader, (o0, o1, o2, o3, o4)))
+                        })
+                    })
+                })
+            })
+            .boxed()
     }
 }
 
 #[cfg(test)]
 mod test {
+    use std::io::Cursor;
     use futures::Future;
-    use pattern::read::U8;
+    use pattern::read::*;
     use super::*;
 
     #[test]
     fn it_works() {
-        let reader = b"abc";
-        assert_eq!(U8.read_pattern(&reader[..]).wait().ok().unwrap().1, b'a');
+        let input = Cursor::new([0, 0, 1, 2, 0, 0, 0]);
+        assert_eq!(input.async_read_pattern((U8, U16be, U32le)).wait().ok().map(|x| x.1),
+                   Some((0, 1, 2)));
     }
 }
