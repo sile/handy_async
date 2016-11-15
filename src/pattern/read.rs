@@ -48,7 +48,7 @@ pub struct U24be;
 impl Fixed for U24be {
     type Output = u32;
     fn convert(buf: &[u8]) -> Self::Output {
-        BigEndian::read_u32(&[0, buf[2], buf[1], buf[0]])
+        BigEndian::read_u32(&[0, buf[0], buf[1], buf[2]])
     }
 }
 
@@ -129,7 +129,7 @@ pub struct I24be;
 impl Fixed for I24be {
     type Output = i32;
     fn convert(buf: &[u8]) -> Self::Output {
-        BigEndian::read_i32(&[buf[2], buf[1], buf[0], 0]) >> 8
+        BigEndian::read_i32(&[buf[0], buf[1], buf[2], 0]) >> 8
     }
 }
 

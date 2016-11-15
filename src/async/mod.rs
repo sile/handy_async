@@ -16,7 +16,7 @@ mod write;
 
 pub type IoFuture<T> = BoxFuture<T, io::Error>;
 
-struct Window<B> {
+pub struct Window<B> {
     pub inner: B,
     pub offset: usize,
 }
