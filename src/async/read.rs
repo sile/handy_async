@@ -139,6 +139,13 @@ pub trait ReadPattern<R: io::Read> {
     {
         MapPattern(self, f, PhantomData)
     }
+    fn and_then<F, T>(self, f: F) -> AndThenPattern<R, Self, F>
+        where Self: Sized,
+              F: FnOnce(Self::Output) -> T,
+              T: ReadPattern<R>
+    {
+        AndThenPattern(self, f, PhantomData)
+    }
 }
 
 pub struct BoxPattern<R, O>(Box<FnMut(R) -> IoFuture<(R, O)> + Send + 'static>);
@@ -161,6 +168,22 @@ impl<R: io::Read, P, F, U> ReadPattern<R> for MapPattern<R, P, F>
     fn read_pattern(self, reader: R) -> Self::Future {
         let MapPattern(p, f, _) = self;
         p.read_pattern(reader).map(move |(r, v)| (r, f(v))).boxed()
+    }
+}
+
+pub struct AndThenPattern<R, P, F>(P, F, PhantomData<R>);
+impl<R: io::Read, P, F, U> ReadPattern<R> for AndThenPattern<R, P, F>
+    where P: ReadPattern<R>,
+          P::Future: Send + 'static,
+          F: FnOnce(P::Output) -> U + Send + 'static,
+          U: ReadPattern<R>,
+          U::Future: Send + 'static
+{
+    type Output = U::Output;
+    type Future = IoFuture<(R, Self::Output)>;
+    fn read_pattern(self, reader: R) -> Self::Future {
+        let AndThenPattern(p, f, _) = self;
+        p.read_pattern(reader).and_then(move |(r, v)| f(v).read_pattern(r)).boxed()
     }
 }
 
