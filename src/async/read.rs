@@ -453,6 +453,14 @@ impl<R: io::Read, P0, P1, P2, P3, P4> ReadPattern<R> for (P0, P1, P2, P3, P4)
     }
 }
 
+impl<R: io::Read> ReadPattern<R> for io::Error {
+    type Output = ();
+    type Future = futures::Failed<(R, Self::Output), io::Error>;
+    fn read_pattern(self, _reader: R) -> Self::Future {
+        futures::failed(self)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use std::io::Cursor;
