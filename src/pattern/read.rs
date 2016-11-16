@@ -7,7 +7,23 @@ pub trait Fixed {
     fn convert(buf: &[u8]) -> Self::Output;
 }
 
-#[derive(Debug)]
+pub trait AsUsize {
+    fn as_usize(&self) -> usize;
+}
+impl AsUsize for u32 {
+    fn as_usize(&self) -> usize {
+        *self as usize
+    }
+}
+
+impl Fixed for () {
+    type Output = ();
+    fn convert(_buf: &[u8]) -> Self::Output {
+        ()
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct U8;
 impl Fixed for U8 {
     type Output = u8;
@@ -16,7 +32,7 @@ impl Fixed for U8 {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct U16le;
 impl Fixed for U16le {
     type Output = u16;
@@ -25,7 +41,7 @@ impl Fixed for U16le {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct U16be;
 impl Fixed for U16be {
     type Output = u16;
@@ -34,7 +50,7 @@ impl Fixed for U16be {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct U24le;
 impl Fixed for U24le {
     type Output = u32;
@@ -43,7 +59,7 @@ impl Fixed for U24le {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct U24be;
 impl Fixed for U24be {
     type Output = u32;
@@ -52,7 +68,7 @@ impl Fixed for U24be {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct U32le;
 impl Fixed for U32le {
     type Output = u32;
@@ -61,7 +77,7 @@ impl Fixed for U32le {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct U32be;
 impl Fixed for U32be {
     type Output = u32;
@@ -70,7 +86,7 @@ impl Fixed for U32be {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct U64le;
 impl Fixed for U64le {
     type Output = u64;
@@ -79,7 +95,7 @@ impl Fixed for U64le {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct U64be;
 impl Fixed for U64be {
     type Output = u64;
@@ -88,7 +104,7 @@ impl Fixed for U64be {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct I8;
 impl Fixed for I8 {
     type Output = i8;
@@ -97,7 +113,7 @@ impl Fixed for I8 {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct I16le;
 impl Fixed for I16le {
     type Output = i16;
@@ -106,7 +122,7 @@ impl Fixed for I16le {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct I16be;
 impl Fixed for I16be {
     type Output = i16;
@@ -115,7 +131,7 @@ impl Fixed for I16be {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct I24le;
 impl Fixed for I24le {
     type Output = i32;
@@ -124,7 +140,7 @@ impl Fixed for I24le {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct I24be;
 impl Fixed for I24be {
     type Output = i32;
@@ -133,7 +149,7 @@ impl Fixed for I24be {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct I32le;
 impl Fixed for I32le {
     type Output = i32;
@@ -142,7 +158,7 @@ impl Fixed for I32le {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct I32be;
 impl Fixed for I32be {
     type Output = i32;
@@ -151,7 +167,7 @@ impl Fixed for I32be {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct I64le;
 impl Fixed for I64le {
     type Output = i64;
@@ -160,7 +176,7 @@ impl Fixed for I64le {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct I64be;
 impl Fixed for I64be {
     type Output = i64;
@@ -168,3 +184,9 @@ impl Fixed for I64be {
         BigEndian::read_i64(buf)
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct Str<T>(pub T);
+
+#[derive(Debug, Clone)]
+pub struct Vector<N, T>(pub N, pub T);

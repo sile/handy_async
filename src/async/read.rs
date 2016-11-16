@@ -1,5 +1,6 @@
 use std::io;
 use std::marker::PhantomData;
+use futures;
 use futures::Poll;
 use futures::Async;
 use futures::Future;
@@ -76,7 +77,7 @@ impl<R, B> Future for ReadExact<R, B>
     type Error = io::Error;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         if let Async::Ready((reader, mut buf, read_size)) = self.0.poll()? {
-            if read_size == 0 {
+            if read_size == 0 && buf.offset < buf.inner.as_mut().len() {
                 let e = io::Error::new(io::ErrorKind::UnexpectedEof, "Unexpected EOF in ReadExact");
                 Err(e)
             } else {
@@ -124,6 +125,43 @@ pub trait ReadPattern<R: io::Read> {
     type Output;
     type Future: Future<Item = (R, Self::Output), Error = io::Error>;
     fn read_pattern(self, reader: R) -> Self::Future;
+
+    fn boxed(self) -> BoxPattern<R, Self::Output>
+        where Self: Sized + Send + 'static,
+              Self::Future: Send + 'static
+    {
+        let mut f = Some(move |reader| self.read_pattern(reader).boxed());
+        BoxPattern(Box::new(move |reader| (f.take().unwrap())(reader)))
+    }
+    fn map<F, T>(self, f: F) -> MapPattern<R, Self, F>
+        where Self: Sized,
+              F: FnOnce(Self::Output) -> T + Send + 'static
+    {
+        MapPattern(self, f, PhantomData)
+    }
+}
+
+pub struct BoxPattern<R, O>(Box<FnMut(R) -> IoFuture<(R, O)> + Send + 'static>);
+impl<R: io::Read, O> ReadPattern<R> for BoxPattern<R, O> {
+    type Output = O;
+    type Future = IoFuture<(R, O)>;
+    fn read_pattern(mut self, reader: R) -> Self::Future {
+        (self.0)(reader)
+    }
+}
+
+pub struct MapPattern<R, P, F>(P, F, PhantomData<R>);
+impl<R: io::Read, P, F, U> ReadPattern<R> for MapPattern<R, P, F>
+    where P: ReadPattern<R>,
+          P::Future: Send + 'static,
+          F: FnOnce(P::Output) -> U + Send + 'static
+{
+    type Output = U;
+    type Future = IoFuture<(R, Self::Output)>;
+    fn read_pattern(self, reader: R) -> Self::Future {
+        let MapPattern(p, f, _) = self;
+        p.read_pattern(reader).map(move |(r, v)| (r, f(v))).boxed()
+    }
 }
 
 pub struct ReadFixed<R, B, P> {
@@ -179,6 +217,107 @@ impl_fixed_read_pattern!(I32le, 4);
 impl_fixed_read_pattern!(I32be, 4);
 impl_fixed_read_pattern!(I64le, 8);
 impl_fixed_read_pattern!(I64be, 8);
+
+impl<R: io::Read, T> ReadPattern<R> for pattern::read::Str<T>
+    where R: Send + 'static,
+          T: ReadPattern<R>,
+          T::Future: Send + 'static,
+          T::Output: pattern::read::AsUsize
+{
+    type Output = String;
+    type Future = IoFuture<(R, Self::Output)>;
+    fn read_pattern(self, reader: R) -> Self::Future {
+        use pattern::read::AsUsize;
+        self.0
+            .read_pattern(reader)
+            .and_then(|(reader, len)| reader.async_read_exact(vec![0; len.as_usize()]))
+            .and_then(|(reader, buf)| {
+                String::from_utf8(buf)
+                    .map_err(|e| {
+                        io::Error::new(io::ErrorKind::Other, format!("Invalid UTF-8: {}", e))
+                    })
+                    .map(|s| (reader, s))
+            })
+            .boxed()
+    }
+}
+
+impl<R: io::Read, N, T> ReadPattern<R> for pattern::read::Vector<N, T>
+    where R: Send + 'static,
+          N: ReadPattern<R>,
+          N::Future: Send + 'static,
+          N::Output: pattern::read::AsUsize,
+          T: ReadPattern<R> + Clone + Send + 'static,
+          T::Future: Send + 'static,
+          T::Output: Send + 'static
+{
+    type Output = Vec<T::Output>;
+    type Future = IoFuture<(R, Self::Output)>;
+    fn read_pattern(self, reader: R) -> Self::Future {
+        use pattern::read::AsUsize;
+        let pattern::read::Vector(len, elem) = self;
+        len.read_pattern(reader)
+            .and_then(move |(reader, len)| ReadVec::new(reader, len.as_usize(), elem))
+            .boxed()
+    }
+}
+
+struct ReadVec<R, T, F, O>(Result<F, Option<R>>, T, Vec<O>);
+impl<R, T> ReadVec<R, T, T::Future, T::Output>
+    where R: io::Read,
+          T: ReadPattern<R> + Clone
+{
+    fn new(reader: R, size: usize, pattern: T) -> Self {
+        if size == 0 {
+            ReadVec(Err(Some(reader)), pattern, Vec::new())
+        } else {
+            let v = Vec::with_capacity(size);
+            let f = pattern.clone().read_pattern(reader);
+            ReadVec(Ok(f), pattern, v)
+        }
+    }
+}
+impl<R, T> Future for ReadVec<R, T, T::Future, T::Output>
+    where R: io::Read,
+          T: ReadPattern<R> + Clone
+{
+    type Item = (R, Vec<T::Output>);
+    type Error = io::Error;
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        use std::mem;
+        match mem::replace(&mut self.0, Err(None)) {
+            Ok(mut future) => {
+                if let Async::Ready((r, e)) = future.poll()? {
+                    self.2.push(e);
+                    if self.2.len() == self.2.capacity() {
+                        self.0 = Err(Some(r));
+                    } else {
+                        let f = self.1.clone().read_pattern(r);
+                        self.0 = Ok(f);
+                    }
+                    self.poll()
+                } else {
+                    Ok(Async::NotReady)
+                }
+            }
+            Err(reader) => {
+                if let Some(reader) = reader {
+                    Ok(Async::Ready((reader, mem::replace(&mut self.2, Vec::new()))))
+                } else {
+                    panic!("Cannot poll ReadVec twice");
+                }
+            }
+        }
+    }
+}
+
+impl<R: io::Read> ReadPattern<R> for () {
+    type Output = ();
+    type Future = futures::Finished<(R, Self::Output), io::Error>;
+    fn read_pattern(self, reader: R) -> Self::Future {
+        futures::finished((reader, ()))
+    }
+}
 
 impl<R: io::Read, P0, P1> ReadPattern<R> for (P0, P1)
     where P0: ReadPattern<R> + Send + 'static,

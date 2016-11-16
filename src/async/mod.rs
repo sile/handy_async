@@ -11,7 +11,7 @@ pub use self::write::WritePattern;
 pub use self::write::Write;
 pub use self::write::WriteAll;
 
-mod read;
+pub mod read;
 mod write;
 
 pub type IoFuture<T> = BoxFuture<T, io::Error>;
