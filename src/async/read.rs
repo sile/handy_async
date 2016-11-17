@@ -32,8 +32,32 @@ pub trait AsyncRead: Sized + io::Read {
     {
         pattern.read_pattern(self)
     }
+    fn into_bytes_stream(self) -> BytesStream<Self> {
+        BytesStream(self.async_read(vec![0; 1024]))
+    }
 }
 impl<T> AsyncRead for T where T: Sized + io::Read {}
+
+pub struct BytesStream<R>(Read<R, Vec<u8>>);
+impl<R> futures::stream::Stream for BytesStream<R>
+    where R: io::Read
+{
+    type Item = Vec<u8>;
+    type Error = io::Error;
+    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+        if let Async::Ready((reader, mut buf, size)) = self.0.poll()? {
+            if size == 0 {
+                Ok(Async::Ready(None))
+            } else {
+                buf.truncate(size);
+                self.0 = reader.async_read(vec![0; 1024]);
+                Ok(Async::Ready(Some(buf)))
+            }
+        } else {
+            Ok(Async::NotReady)
+        }
+    }
+}
 
 pub struct Read<R, B> {
     inner: Option<(R, B)>,
