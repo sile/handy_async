@@ -10,6 +10,16 @@ pub trait Fixed {
 pub trait AsUsize {
     fn as_usize(&self) -> usize;
 }
+impl AsUsize for u8 {
+    fn as_usize(&self) -> usize {
+        *self as usize
+    }
+}
+impl AsUsize for u16 {
+    fn as_usize(&self) -> usize {
+        *self as usize
+    }
+}
 impl AsUsize for u32 {
     fn as_usize(&self) -> usize {
         *self as usize
