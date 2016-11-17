@@ -344,6 +344,7 @@ impl<R, T> Future for ReadVec<R, T, T::Future, T::Output>
                     }
                     self.poll()
                 } else {
+                    self.0 = Ok(future);
                     Ok(Async::NotReady)
                 }
             }
