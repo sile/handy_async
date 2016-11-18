@@ -172,6 +172,14 @@ impl<W: io::Write> WritePattern<W> for String {
     }
 }
 
+impl<W: io::Write> WritePattern<W> for Vec<u8> {
+    type Output = Self;
+    type Future = WriteAll<W, Self>;
+    fn write_pattern(self, writer: W) -> Self::Future {
+        writer.async_write_all(self)
+    }
+}
+
 impl<W: io::Write> WritePattern<W> for () {
     type Output = ();
     type Future = futures::Finished<(W, Self::Output), io::Error>;
