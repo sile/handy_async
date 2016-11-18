@@ -3,6 +3,7 @@ extern crate byteorder;
 
 use std::io;
 
+pub mod sync;
 pub mod async;
 pub mod pattern;
 
