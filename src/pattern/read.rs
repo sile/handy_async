@@ -200,3 +200,6 @@ pub struct Str<T>(pub T);
 
 #[derive(Debug, Clone)]
 pub struct Vector<N, T>(pub N, pub T);
+
+#[derive(Debug, Clone)]
+pub struct Immediate<T>(pub T);
