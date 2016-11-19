@@ -38,3 +38,55 @@ impl_fixed_read_pattern!(I32le, 4);
 impl_fixed_read_pattern!(I32be, 4);
 impl_fixed_read_pattern!(I64le, 8);
 impl_fixed_read_pattern!(I64be, 8);
+
+impl<R: io::Read, P0, P1> ReadPattern<R> for (P0, P1)
+    where P0: ReadPattern<R>,
+          P1: ReadPattern<R>
+{
+    type Output = (P0::Output, P1::Output);
+    fn sync_read_pattern(self, reader: &mut R) -> io::Result<Self::Output> {
+        Ok((self.0.sync_read_pattern(reader)?, self.1.sync_read_pattern(reader)?))
+    }
+}
+impl<R: io::Read, P0, P1, P2> ReadPattern<R> for (P0, P1, P2)
+    where P0: ReadPattern<R>,
+          P1: ReadPattern<R>,
+          P2: ReadPattern<R>
+{
+    type Output = (P0::Output, P1::Output, P2::Output);
+    fn sync_read_pattern(self, reader: &mut R) -> io::Result<Self::Output> {
+        Ok((self.0.sync_read_pattern(reader)?,
+            self.1.sync_read_pattern(reader)?,
+            self.2.sync_read_pattern(reader)?))
+    }
+}
+impl<R: io::Read, P0, P1, P2, P3> ReadPattern<R> for (P0, P1, P2, P3)
+    where P0: ReadPattern<R>,
+          P1: ReadPattern<R>,
+          P2: ReadPattern<R>,
+          P3: ReadPattern<R>
+{
+    type Output = (P0::Output, P1::Output, P2::Output, P3::Output);
+    fn sync_read_pattern(self, reader: &mut R) -> io::Result<Self::Output> {
+        Ok((self.0.sync_read_pattern(reader)?,
+            self.1.sync_read_pattern(reader)?,
+            self.2.sync_read_pattern(reader)?,
+            self.3.sync_read_pattern(reader)?))
+    }
+}
+impl<R: io::Read, P0, P1, P2, P3, P4> ReadPattern<R> for (P0, P1, P2, P3, P4)
+    where P0: ReadPattern<R>,
+          P1: ReadPattern<R>,
+          P2: ReadPattern<R>,
+          P3: ReadPattern<R>,
+          P4: ReadPattern<R>
+{
+    type Output = (P0::Output, P1::Output, P2::Output, P3::Output, P4::Output);
+    fn sync_read_pattern(self, reader: &mut R) -> io::Result<Self::Output> {
+        Ok((self.0.sync_read_pattern(reader)?,
+            self.1.sync_read_pattern(reader)?,
+            self.2.sync_read_pattern(reader)?,
+            self.3.sync_read_pattern(reader)?,
+            self.4.sync_read_pattern(reader)?))
+    }
+}
