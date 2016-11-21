@@ -5,7 +5,7 @@ use futures::Poll;
 use futures::Async;
 use futures::Future;
 
-use pattern::write::{LE, BE, U24, I24, Iter};
+use pattern::write::{LE, BE, U24, I24, Iter, Range};
 use super::Window;
 use super::IoFuture;
 
@@ -333,6 +333,17 @@ impl<W: io::Write, P0, P1, P2, P3, P4, P5> WritePattern<W> for (P0, P1, P2, P3, 
                 })
             })
             .boxed()
+    }
+}
+
+impl<W: io::Write, B> WritePattern<W> for Range<B>
+    where B: AsRef<[u8]> + Send + 'static,
+          W: Send + 'static
+{
+    type Output = B;
+    type Future = IoFuture<(W, Self::Output)>;
+    fn write_pattern(self, writer: W) -> Self::Future {
+        writer.async_write_all(self).map(|(w, s)| (w, s.0)).boxed()
     }
 }
 

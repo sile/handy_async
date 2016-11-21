@@ -119,3 +119,13 @@ impl Fixed for LE<i64> {
 
 #[derive(Debug)]
 pub struct Iter<I>(pub I);
+
+use std::ops;
+
+#[derive(Debug)]
+pub struct Range<B>(pub B, pub ops::Range<usize>);
+impl<B: AsRef<[u8]>> AsRef<[u8]> for Range<B> {
+    fn as_ref(&self) -> &[u8] {
+        &self.0.as_ref()[self.1.start..self.1.end]
+    }
+}
