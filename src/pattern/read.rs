@@ -28,6 +28,27 @@ impl Pattern for U32 {
 impl Endian for U32 {}
 
 #[derive(Debug, Clone)]
+pub struct U40;
+impl Pattern for U40 {
+    type Value = u64;
+}
+impl Endian for U40 {}
+
+#[derive(Debug, Clone)]
+pub struct U48;
+impl Pattern for U48 {
+    type Value = u64;
+}
+impl Endian for U48 {}
+
+#[derive(Debug, Clone)]
+pub struct U56;
+impl Pattern for U56 {
+    type Value = u64;
+}
+impl Endian for U56 {}
+
+#[derive(Debug, Clone)]
 pub struct U64;
 impl Pattern for U64 {
     type Value = u64;
@@ -60,6 +81,27 @@ impl Pattern for I32 {
     type Value = i32;
 }
 impl Endian for I32 {}
+
+#[derive(Debug, Clone)]
+pub struct I40;
+impl Pattern for I40 {
+    type Value = i64;
+}
+impl Endian for I40 {}
+
+#[derive(Debug, Clone)]
+pub struct I48;
+impl Pattern for I48 {
+    type Value = i64;
+}
+impl Endian for I48 {}
+
+#[derive(Debug, Clone)]
+pub struct I56;
+impl Pattern for I56 {
+    type Value = i64;
+}
+impl Endian for I56 {}
 
 #[derive(Debug, Clone)]
 pub struct I64;

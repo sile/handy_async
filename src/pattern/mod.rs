@@ -327,6 +327,16 @@ pub trait Endian: Sized {
 
 #[derive(Debug, Clone)]
 pub struct LE<T>(pub T);
+impl<T> Pattern for LE<T>
+    where T: Endian + Pattern
+{
+    type Value = T::Value;
+}
 
 #[derive(Debug, Clone)]
 pub struct BE<T>(pub T);
+impl<T> Pattern for BE<T>
+    where T: Endian + Pattern
+{
+    type Value = T::Value;
+}
