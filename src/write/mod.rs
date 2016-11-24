@@ -2,6 +2,9 @@ use std::io::{self, Write};
 use futures::{Poll, Async, Future};
 
 use pattern::{Pattern, Window};
+use super::IoFuture;
+
+pub mod combinators;
 
 pub trait WriteTo<W: Write>: Pattern {
     type Future: Future<Item = (W, Self::Value), Error = (W, io::Error)>;
@@ -11,13 +14,24 @@ pub trait WriteTo<W: Write>: Pattern {
     fn sync_write_to(self, writer: W) -> io::Result<Self::Value> {
         self.write_to(writer).map(|(_, v)| v).map_err(|(_, e)| e).wait()
     }
-    // fn boxed(self) -> BoxWriteTo<W, Self::Value>
-    //     where Self: Send + 'static,
-    //           Self::Future: Send + 'static
-    // {
-    //     let mut f = Some(move |writer: W| self.write_to(writer).boxed());
-    //     BoxWriteTo(Box::new(move |writer| (f.take().unwrap())(writer)))
-    // }
+    fn boxed(self) -> BoxWriteTo<W, Self::Value>
+        where Self: Send + 'static,
+              Self::Future: Send + 'static
+    {
+        let mut f = Some(move |writer: W| self.write_to(writer).boxed());
+        BoxWriteTo(Box::new(move |writer| (f.take().unwrap())(writer)))
+    }
+}
+
+pub struct BoxWriteTo<W, T>(Box<FnMut(W) -> IoFuture<W, T>>);
+impl<W, T> Pattern for BoxWriteTo<W, T> {
+    type Value = T;
+}
+impl<W: Write, T> WriteTo<W> for BoxWriteTo<W, T> {
+    type Future = IoFuture<W, T>;
+    fn write_to(mut self, writer: W) -> Self::Future {
+        (self.0)(writer)
+    }
 }
 
 pub trait AsyncWrite: Write + Sized {
