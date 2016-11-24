@@ -8,9 +8,11 @@ pub use self::read::BoxReadFrom;
 pub use self::read::{AsyncRead, ReadBytes, ReadExact, ReadFold, BytesStream};
 pub use self::read::combinators::{ReadMap, ReadAndThen, ReadChain, ReadIterFold, ReadBranch};
 
-// TODO: {write,read}::BytesCount
+pub mod read;
+pub mod write;
 
-mod read;
 pub mod pattern;
+
+// TODO: BytesCount for read/write
 
 pub type IoFuture<S, T> = futures::BoxFuture<(S, T), (S, io::Error)>;

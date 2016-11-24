@@ -36,7 +36,7 @@ impl<R: Read, T> ReadFrom<R> for BoxReadFrom<R, T> {
     }
 }
 
-pub trait AsyncRead: io::Read + Sized {
+pub trait AsyncRead: Read + Sized {
     fn async_read<B: AsMut<[u8]>>(self, buf: B) -> ReadBytes<Self, B> {
         ReadBytes::State(self, buf)
     }

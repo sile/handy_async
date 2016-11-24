@@ -1,7 +1,7 @@
 use std::io;
 
 pub mod read;
-// pub mod write;
+pub mod write;
 
 pub trait Pattern: Sized {
     type Value;
