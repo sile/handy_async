@@ -1,205 +1,97 @@
-use byteorder::ByteOrder;
-use byteorder::BigEndian;
-use byteorder::LittleEndian;
-
-pub trait Fixed {
-    type Output;
-    fn convert(buf: &[u8]) -> Self::Output;
-}
-
-pub trait AsUsize {
-    fn as_usize(&self) -> usize;
-}
-impl AsUsize for u8 {
-    fn as_usize(&self) -> usize {
-        *self as usize
-    }
-}
-impl AsUsize for u16 {
-    fn as_usize(&self) -> usize {
-        *self as usize
-    }
-}
-impl AsUsize for u32 {
-    fn as_usize(&self) -> usize {
-        *self as usize
-    }
-}
-
-impl Fixed for () {
-    type Output = ();
-    fn convert(_buf: &[u8]) -> Self::Output {
-        ()
-    }
-}
+use super::{Pattern, Endian};
 
 #[derive(Debug, Clone)]
 pub struct U8;
-impl Fixed for U8 {
-    type Output = u8;
-    fn convert(buf: &[u8]) -> Self::Output {
-        buf[0]
-    }
+impl Pattern for U8 {
+    type Value = u8;
 }
 
 #[derive(Debug, Clone)]
-pub struct U16le;
-impl Fixed for U16le {
-    type Output = u16;
-    fn convert(buf: &[u8]) -> Self::Output {
-        LittleEndian::read_u16(buf)
-    }
+pub struct U16;
+impl Pattern for U16 {
+    type Value = u16;
 }
+impl Endian for U16 {}
 
 #[derive(Debug, Clone)]
-pub struct U16be;
-impl Fixed for U16be {
-    type Output = u16;
-    fn convert(buf: &[u8]) -> Self::Output {
-        BigEndian::read_u16(buf)
-    }
+pub struct U24;
+impl Pattern for U24 {
+    type Value = u32;
 }
+impl Endian for U24 {}
 
 #[derive(Debug, Clone)]
-pub struct U24le;
-impl Fixed for U24le {
-    type Output = u32;
-    fn convert(buf: &[u8]) -> Self::Output {
-        LittleEndian::read_u32(&[buf[0], buf[1], buf[2], 0])
-    }
+pub struct U32;
+impl Pattern for U32 {
+    type Value = u32;
 }
+impl Endian for U32 {}
 
 #[derive(Debug, Clone)]
-pub struct U24be;
-impl Fixed for U24be {
-    type Output = u32;
-    fn convert(buf: &[u8]) -> Self::Output {
-        BigEndian::read_u32(&[0, buf[0], buf[1], buf[2]])
-    }
+pub struct U64;
+impl Pattern for U64 {
+    type Value = u64;
 }
-
-#[derive(Debug, Clone)]
-pub struct U32le;
-impl Fixed for U32le {
-    type Output = u32;
-    fn convert(buf: &[u8]) -> Self::Output {
-        LittleEndian::read_u32(buf)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct U32be;
-impl Fixed for U32be {
-    type Output = u32;
-    fn convert(buf: &[u8]) -> Self::Output {
-        BigEndian::read_u32(buf)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct U64le;
-impl Fixed for U64le {
-    type Output = u64;
-    fn convert(buf: &[u8]) -> Self::Output {
-        LittleEndian::read_u64(buf)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct U64be;
-impl Fixed for U64be {
-    type Output = u64;
-    fn convert(buf: &[u8]) -> Self::Output {
-        BigEndian::read_u64(buf)
-    }
-}
+impl Endian for U64 {}
 
 #[derive(Debug, Clone)]
 pub struct I8;
-impl Fixed for I8 {
-    type Output = i8;
-    fn convert(buf: &[u8]) -> Self::Output {
-        buf[0] as i8
-    }
+impl Pattern for I8 {
+    type Value = i8;
 }
 
 #[derive(Debug, Clone)]
-pub struct I16le;
-impl Fixed for I16le {
-    type Output = i16;
-    fn convert(buf: &[u8]) -> Self::Output {
-        LittleEndian::read_i16(buf)
-    }
+pub struct I16;
+impl Pattern for I16 {
+    type Value = i16;
+}
+impl Endian for I16 {}
+
+#[derive(Debug, Clone)]
+pub struct I24;
+impl Pattern for I24 {
+    type Value = i32;
+}
+impl Endian for I24 {}
+
+#[derive(Debug, Clone)]
+pub struct I32;
+impl Pattern for I32 {
+    type Value = i32;
+}
+impl Endian for I32 {}
+
+#[derive(Debug, Clone)]
+pub struct I64;
+impl Pattern for I64 {
+    type Value = i64;
+}
+impl Endian for I64 {}
+
+#[derive(Debug, Clone)]
+pub struct F32;
+impl Pattern for F32 {
+    type Value = f32;
+}
+impl Endian for F32 {}
+
+#[derive(Debug, Clone)]
+pub struct F64;
+impl Pattern for F64 {
+    type Value = f64;
+}
+impl Endian for F64 {}
+
+#[derive(Debug, Clone)]
+pub struct Eos;
+impl Pattern for Eos {
+    type Value = Result<(), u8>;
 }
 
-#[derive(Debug, Clone)]
-pub struct I16be;
-impl Fixed for I16be {
-    type Output = i16;
-    fn convert(buf: &[u8]) -> Self::Output {
-        BigEndian::read_i16(buf)
-    }
+#[derive(Debug)]
+pub struct Until<F>(pub F);
+impl<F> Pattern for Until<F>
+    where F: for<'a> Fn(&'a [u8], usize) -> bool
+{
+    type Value = Vec<u8>;
 }
-
-#[derive(Debug, Clone)]
-pub struct I24le;
-impl Fixed for I24le {
-    type Output = i32;
-    fn convert(buf: &[u8]) -> Self::Output {
-        LittleEndian::read_i32(&[0, buf[0], buf[1], buf[2]]) >> 8
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct I24be;
-impl Fixed for I24be {
-    type Output = i32;
-    fn convert(buf: &[u8]) -> Self::Output {
-        BigEndian::read_i32(&[buf[0], buf[1], buf[2], 0]) >> 8
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct I32le;
-impl Fixed for I32le {
-    type Output = i32;
-    fn convert(buf: &[u8]) -> Self::Output {
-        LittleEndian::read_i32(buf)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct I32be;
-impl Fixed for I32be {
-    type Output = i32;
-    fn convert(buf: &[u8]) -> Self::Output {
-        BigEndian::read_i32(buf)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct I64le;
-impl Fixed for I64le {
-    type Output = i64;
-    fn convert(buf: &[u8]) -> Self::Output {
-        LittleEndian::read_i64(buf)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct I64be;
-impl Fixed for I64be {
-    type Output = i64;
-    fn convert(buf: &[u8]) -> Self::Output {
-        BigEndian::read_i64(buf)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Str<T>(pub T);
-
-#[derive(Debug, Clone)]
-pub struct Vector<N, T>(pub N, pub T);
-
-#[derive(Debug, Clone)]
-pub struct Immediate<T>(pub T);
