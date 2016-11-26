@@ -4,7 +4,7 @@ handy_io
 [![Build Status](https://travis-ci.org/sile/handy_io.svg?branch=master)](https://travis-ci.org/sile/handy_io)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-This provides miscellaneous functionalities to help I / O operations in Rust.
+This library provides miscellaneous functionalities to help I / O operations in Rust.
 
 `handy_io` uses [futures](https://github.com/alexcrichton/futures-rs) to achieve asynchronous I/O
 and defines a lot of pattern objects to facilitate writing I/O related codes declaratively.
