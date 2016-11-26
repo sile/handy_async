@@ -14,7 +14,7 @@ pub trait ReadFrom<R: Read>: Pattern {
 
     fn lossless_read_from(self, reader: R) -> Self::Future;
 
-    fn read_fromy(self, reader: R) -> LossyReadFrom<R, Self::Future> {
+    fn read_from(self, reader: R) -> LossyReadFrom<R, Self::Future> {
         fn conv<R>((_, e): (R, io::Error)) -> io::Error {
             e
         }
