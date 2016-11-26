@@ -33,6 +33,9 @@ pub trait WriteTo<W: Write>: Pattern {
 
 pub type LossyWriteTo<W, F> = futures::MapErr<F, fn((W, io::Error)) -> io::Error>;
 
+/// Boxed object which implements `WriteTo` trait.
+///
+/// This object can be created with the `WriteTo::boxed` method.
 pub struct BoxWriteTo<W, T>(Box<FnMut(W) -> IoFuture<W, T>>);
 impl<W, T> Pattern for BoxWriteTo<W, T> {
     type Value = T;
@@ -49,7 +52,7 @@ pub trait AsyncWrite: Write + Sized {
         WriteBytes(Some((self, buf)))
     }
     fn async_write_all<B: AsRef<[u8]>>(self, buf: B) -> WriteAll<Self, B> {
-        WriteAll(self.async_write(Window::new(buf)))
+        WriteAll(self.async_write(Window::new_ref(buf)))
     }
     fn async_flush(self) -> Flush<Self> {
         Flush(Some(self))

@@ -9,8 +9,8 @@ This library provides miscellaneous functionalities to help I / O operations in 
 `handy_io` uses [futures](https://github.com/alexcrichton/futures-rs) to achieve asynchronous I/O
 and defines a lot of pattern objects to facilitate writing I/O related codes declaratively.
 
-For example, you can write following `read_tcp_header` function to read a TCP header
-defined in [RFC-793](https://www.ietf.org/rfc/rfc793.txt) asynchronously.
+For example, you can write a function to read a TCP header
+defined in [RFC-793](https://www.ietf.org/rfc/rfc793.txt) asynchronously as following.
 
 ```rust
 extern crate handy_io;
@@ -63,18 +63,13 @@ fn read_tcp_header<R: Read + Send + 'static>(reader: R) -> BoxFuture<TcpHeader, 
         });
     pattern.read_from(reader).map(|(reader, header)| header).boxed()
 }
-
-fn main(){
-    let future = read_tcp_header(std::io::stdin());
-    let tcp_header = future.wait().expect("Failed to read tcp header");
-}
 ```
 
 
 Documentation
 -------------
 
-See TODO.
+See [here](https://docs.rs/handy_io).
 
 The documentation includes some examples.
 

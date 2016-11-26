@@ -3,8 +3,8 @@
 //! `handy_io` uses [futures](https://github.com/alexcrichton/futures-rs) to achieve asynchronous I/O
 //! and defines a lot of pattern objects to facilitate writing I/O related codes declaratively.
 //!
-//! For example, you can write following `read_tcp_header` function to read a TCP header
-//! defined in [RFC-793](https://www.ietf.org/rfc/rfc793.txt) asynchronously.
+//! For example, you can write a function to read a TCP header
+//! defined in [RFC-793](https://www.ietf.org/rfc/rfc793.txt) asynchronously as following.
 //!
 //! ```no_run
 //! extern crate handy_io;

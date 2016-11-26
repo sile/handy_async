@@ -189,8 +189,13 @@ pub struct Window<B> {
     end: usize,
 }
 impl<B> AllowPartial for Window<B> {}
-impl<B: AsRef<[u8]>> Window<B> {
+impl<B: AsRef<[u8]> + AsMut<[u8]>> Window<B> {
     pub fn new(buf: B) -> Self {
+        Self::new_ref(buf)
+    }
+}
+impl<B: AsRef<[u8]>> Window<B> {
+    pub fn new_ref(buf: B) -> Self {
         let end = buf.as_ref().len();
         Window {
             inner: buf,

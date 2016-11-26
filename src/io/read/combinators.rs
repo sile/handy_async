@@ -5,6 +5,19 @@ use pattern::{self, Pattern, Branch};
 use super::ReadFrom;
 use super::super::common::{self, Phase};
 
+/// A future for reading `Then` pattern.
+///
+/// # Example
+///
+/// ```
+/// use handy_io::io::ReadFrom;
+/// use handy_io::pattern::Pattern;
+/// use handy_io::pattern::read::U8;
+///
+/// let then_pattern = U8.then(|r| match r { Ok(0) => Ok(true), _ => Ok(false) } );
+///
+/// assert!(!then_pattern.sync_read_from(&mut &[1][..]).unwrap());
+/// ```
 pub struct ReadThen<R: Read, P0, P1, F>(Phase<(P0::Future, F), P1::Future>)
     where P0: ReadFrom<R>,
           P1: ReadFrom<R>;
@@ -56,6 +69,19 @@ impl<R: Read, P0, P1, F> ReadFrom<R> for pattern::combinators::Then<P0, F>
     }
 }
 
+/// A future for reading `AndThen` pattern.
+///
+/// # Example
+///
+/// ```
+/// use handy_io::io::ReadFrom;
+/// use handy_io::pattern::Pattern;
+/// use handy_io::pattern::read::U8;
+///
+/// let and_then_pattern = U8.and_then(|b| if b == 0 { Ok(true) } else { Ok(false) } );
+///
+/// assert!(!and_then_pattern.sync_read_from(&mut &[1][..]).unwrap());
+/// ```
 pub type ReadAndThen<R, P0, P1, F>
     where P0: ReadFrom<R>,
           P1: ReadFrom<R>,
@@ -78,6 +104,19 @@ impl<R: Read, P0, P1, F> ReadFrom<R> for pattern::combinators::AndThen<P0, F>
     }
 }
 
+/// A future for reading `OrElse` pattern.
+///
+/// # Example
+///
+/// ```
+/// use handy_io::io::ReadFrom;
+/// use handy_io::pattern::Pattern;
+/// use handy_io::pattern::read::U8;
+///
+/// let or_else_pattern = U8.or_else(|e| Ok(0xFF));
+///
+/// assert_eq!(or_else_pattern.sync_read_from(std::io::empty()).unwrap(), 0xFF);
+/// ```
 pub struct ReadOrElse<R: Read, P0, P1, F>(Phase<(P0::Future, F), P1::Future>)
     where P0: ReadFrom<R>,
           P1: ReadFrom<R>;
@@ -126,6 +165,19 @@ impl<R: Read, P0, P1, F> ReadFrom<R> for pattern::combinators::OrElse<P0, F>
     }
 }
 
+/// A future for reading `Map` pattern.
+///
+/// # Example
+///
+/// ```
+/// use handy_io::io::ReadFrom;
+/// use handy_io::pattern::Pattern;
+/// use handy_io::pattern::read::U8;
+///
+/// let map_pattern = U8.map(|b| b * 2);
+///
+/// assert_eq!(map_pattern.sync_read_from(&mut &[2][..]).unwrap(), 4);
+/// ```
 pub struct ReadMap<R, P, F, T>(ReadMapInner<R, P, F, T>)
     where P: ReadFrom<R>,
           F: FnOnce(P::Value) -> T,
@@ -159,6 +211,19 @@ impl<R: Read, P, F, T> ReadFrom<R> for pattern::combinators::Map<P, F>
     }
 }
 
+/// A future for reading `Chain` pattern.
+///
+/// # Example
+///
+/// ```
+/// use handy_io::io::ReadFrom;
+/// use handy_io::pattern::Pattern;
+/// use handy_io::pattern::read::U8;
+///
+/// let chain_pattern = U8.chain(U8);
+///
+/// assert_eq!(chain_pattern.sync_read_from(&mut &[1, 2][..]).unwrap(), (1, 2));
+/// ```
 pub struct ReadChain<R: Read, P0, P1>(Phase<(P0::Future, P1), (P1::Future, P0::Value)>)
     where P0: ReadFrom<R>,
           P1: ReadFrom<R>;
@@ -202,6 +267,19 @@ impl<R: Read, P0, P1> ReadFrom<R> for pattern::combinators::Chain<P0, P1>
     }
 }
 
+/// A future for reading `IterFold` pattern.
+///
+/// # Example
+///
+/// ```
+/// use handy_io::io::ReadFrom;
+/// use handy_io::pattern::{Pattern, Iter};
+/// use handy_io::pattern::read::U8;
+///
+/// let iter_fold_pattern = Iter(vec![U8, U8].into_iter()).fold(0, |acc, b| acc + b);
+///
+/// assert_eq!(iter_fold_pattern.sync_read_from(&mut &[1, 2][..]).unwrap(), 3);
+/// ```
 pub struct ReadIterFold<R: Read, P, I, F, T>(Phase<(P::Future, I, T, F), (R, T)>)
     where P: ReadFrom<R>;
 impl<R: Read, I, F, T> Future for ReadIterFold<R, I::Item, I, F, T>
@@ -248,6 +326,19 @@ impl<R: Read, I, F, T> ReadFrom<R> for pattern::combinators::IterFold<I, F, T>
     }
 }
 
+/// A future for reading `Iter` pattern.
+///
+/// # Example
+///
+/// ```
+/// use handy_io::io::ReadFrom;
+/// use handy_io::pattern::{Pattern, Iter};
+/// use handy_io::pattern::read::U8;
+///
+/// let iter_pattern = Iter(vec![U8, U8].into_iter());
+///
+/// assert_eq!(iter_pattern.sync_read_from(&mut &[1, 2][..]).unwrap(), ());
+/// ```
 pub type ReadIter<R, I>
     where I: Iterator,
           I::Item: ReadFrom<R>,
@@ -265,6 +356,21 @@ impl<R: Read, I> ReadFrom<R> for pattern::Iter<I>
     }
 }
 
+/// A future for reading `Option` pattern.
+///
+/// # Example
+///
+/// ```
+/// use handy_io::io::ReadFrom;
+/// use handy_io::pattern::Pattern;
+/// use handy_io::pattern::read::U8;
+///
+/// let none_pattern: Option<U8> = None;
+/// assert_eq!(none_pattern.sync_read_from(&mut &[1, 2][..]).unwrap(), None);
+///
+/// let some_pattern: Option<U8> = Some(U8);
+/// assert_eq!(some_pattern.sync_read_from(&mut &[1, 2][..]).unwrap(), Some(1));
+/// ```
 pub type ReadOption<R, P>
     where R: Read,
           P: ReadFrom<R> = Branch<ReadMap<R,
@@ -286,6 +392,17 @@ impl<R: Read, P> ReadFrom<R> for Option<P>
     }
 }
 
+/// A future for reading `Result` pattern.
+///
+/// # Example
+///
+/// ```
+/// use handy_io::io::ReadFrom;
+/// use handy_io::pattern::Pattern;
+///
+/// let ok_pattern = Ok(5);
+/// assert_eq!(ok_pattern.sync_read_from(std::io::empty()).unwrap(), 5);
+/// ```
 pub type ReadResult<R, T> = futures::Done<(R, T), (R, io::Error)>;
 impl<R: Read, T> ReadFrom<R> for io::Result<T> {
     type Future = ReadResult<R, T>;
@@ -344,6 +461,20 @@ impl_tuple_read_from!([P0, P1, P2, P3, P4, P5, P6, P7 | P8],
 impl_tuple_read_from!([P0, P1, P2, P3, P4, P5, P6, P7, P8 | P9],
                       [0, 1, 2, 3, 4, 5, 6, 7, 8 | 9]);
 
+/// A future for reading `Branch` pattern.
+///
+/// # Example
+///
+/// ```
+/// use handy_io::io::ReadFrom;
+/// use handy_io::pattern::{Pattern, Branch};
+/// use handy_io::pattern::read::{U8, I8};
+///
+/// let branch_pattern = U8.and_then(|b| {
+///     if  b % 2 == 0 { Branch::A(U8) as Branch<_, _> } else { Branch::B(Ok(0u8)) }
+/// });
+/// assert_eq!(branch_pattern.sync_read_from(&mut &[0, 0xFF][..]).unwrap(), 0xFFu8);
+/// ```
 pub type ReadBranch<R, A, B, C, D, E, F, G, H>
     where A: ReadFrom<R>,
           B: ReadFrom<R, Value = A::Value>,

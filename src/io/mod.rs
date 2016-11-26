@@ -1,7 +1,11 @@
+//! I/O operation related modules.
 pub use self::read::{AsyncRead, ReadFrom, BoxReadFrom};
 pub use self::write::{AsyncWrite, WriteTo, BoxWriteTo};
 
 pub mod futures {
+    //! I/O related futures.
+
+    /// Boxed I/O future.
     pub type IoFuture<S, T> = ::futures::BoxFuture<(S, T), (S, ::std::io::Error)>;
 
     pub use super::read::{LossyReadFrom, ReadBytes, ReadNonEmpty, ReadExact, ReadFold};
@@ -17,6 +21,7 @@ pub mod futures {
 }
 
 pub mod streams {
+    //! I/O related streams.
     pub use super::read::ReadStream;
     pub use super::write::WriteStream;
 }
