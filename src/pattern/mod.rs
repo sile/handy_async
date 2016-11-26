@@ -1,132 +1,55 @@
 use std::io;
+use futures::{self, Future};
 
 pub mod read;
 pub mod write;
+pub mod combinators {
+    pub use super::combinators_impl::Then;
+    pub use super::combinators_impl::AndThen;
+    pub use super::combinators_impl::OrElse;
+    pub use super::combinators_impl::Map;
+    pub use super::combinators_impl::Chain;
+    pub use super::combinators_impl::IterFold;
+    pub use super::combinators_impl::BE;
+    pub use super::combinators_impl::LE;
+    pub use super::combinators_impl::PartialBuf;
+    pub use super::combinators_impl::Repeat;
+}
+mod combinators_impl;
 
 pub trait Pattern: Sized {
     type Value;
 
-    fn map<F, T>(self, f: F) -> Map<Self, F>
-        where F: FnOnce(Self::Value) -> T
-    {
-        Map {
-            pattern: self,
-            map: f,
-        }
-    }
-    fn and_then<F, P>(self, f: F) -> AndThen<Self, F>
-        where F: FnOnce(Self::Value) -> P
-    {
-        AndThen {
-            pattern: self,
-            and_then: f,
-        }
-    }
-    fn then<F, P>(self, f: F) -> Then<Self, F>
+    fn then<F, P>(self, f: F) -> combinators::Then<Self, F>
         where F: FnOnce(io::Result<Self::Value>) -> P
     {
-        Then {
-            pattern: self,
-            then: f,
-        }
+        combinators_impl::then(self, f)
     }
-    fn chain<P>(self, other: P) -> Chain<Self, P>
+    fn and_then<F, P>(self, f: F) -> combinators::AndThen<Self, F>
+        where F: FnOnce(Self::Value) -> P
+    {
+        combinators_impl::and_then(self, f)
+    }
+    fn or_else<F, P>(self, f: F) -> combinators::OrElse<Self, F>
+        where F: FnOnce(io::Error) -> P
+    {
+        combinators_impl::or_else(self, f)
+    }
+    fn map<F, T>(self, f: F) -> combinators::Map<Self, F>
+        where F: FnOnce(Self::Value) -> T
+    {
+        combinators_impl::map(self, f)
+    }
+    fn chain<P>(self, other: P) -> combinators::Chain<Self, P>
         where P: Pattern
     {
-        Chain(self, other)
+        combinators_impl::chain(self, other)
     }
-}
-
-pub fn iter<I, P>(iter: I) -> Iter<I>
-    where I: Iterator<Item = P>,
-          P: Pattern
-{
-    Iter(iter)
-}
-
-#[derive(Debug)]
-pub struct Map<P, F> {
-    pattern: P,
-    map: F,
-}
-impl<P, F> Map<P, F> {
-    pub fn unwrap(self) -> (P, F) {
-        (self.pattern, self.map)
+    fn repeat(self) -> combinators::Repeat<Self>
+        where Self: Clone
+    {
+        combinators_impl::repeat(self)
     }
-}
-impl<P, F, T> Pattern for Map<P, F>
-    where P: Pattern,
-          F: FnOnce(P::Value) -> T
-{
-    type Value = T;
-}
-
-#[derive(Debug)]
-pub struct OrElse<P, F> {
-    pattern: P,
-    or_else: F,
-}
-impl<P, F> OrElse<P, F> {
-    pub fn unwrap(self) -> (P, F) {
-        (self.pattern, self.or_else)
-    }
-}
-impl<P0, P1, F> Pattern for OrElse<P0, F>
-    where P0: Pattern,
-          P1: Pattern<Value = P0::Value>,
-          F: FnOnce(io::Error) -> P1
-{
-    type Value = P1::Value;
-}
-
-#[derive(Debug)]
-pub struct Then<P, F> {
-    pattern: P,
-    then: F,
-}
-impl<P, F> Then<P, F> {
-    pub fn unwrap(self) -> (P, F) {
-        (self.pattern, self.then)
-    }
-}
-impl<P0, P1, F> Pattern for Then<P0, F>
-    where P0: Pattern,
-          P1: Pattern,
-          F: FnOnce(io::Result<P0::Value>) -> P1
-{
-    type Value = P1::Value;
-}
-
-#[derive(Debug)]
-pub struct AndThen<P, F> {
-    pattern: P,
-    and_then: F,
-}
-impl<P, F> AndThen<P, F> {
-    pub fn unwrap(self) -> (P, F) {
-        (self.pattern, self.and_then)
-    }
-}
-impl<P0, P1, F> Pattern for AndThen<P0, F>
-    where P0: Pattern,
-          P1: Pattern,
-          F: FnOnce(P0::Value) -> P1
-{
-    type Value = P1::Value;
-}
-
-#[derive(Debug, Clone)]
-pub struct Chain<P0, P1>(P0, P1);
-impl<P0, P1> Chain<P0, P1> {
-    pub fn unwrap(self) -> (P0, P1) {
-        (self.0, self.1)
-    }
-}
-impl<P0, P1> Pattern for Chain<P0, P1>
-    where P0: Pattern,
-          P1: Pattern
-{
-    type Value = (P0::Value, P1::Value);
 }
 
 #[derive(Debug)]
@@ -135,14 +58,10 @@ impl<I, P> Iter<I>
     where I: Iterator<Item = P>,
           P: Pattern
 {
-    pub fn fold<F, T>(self, init: T, f: F) -> IterFold<I, F, T>
+    pub fn fold<F, T>(self, init: T, f: F) -> combinators::IterFold<I, F, T>
         where F: Fn(T, P::Value) -> T
     {
-        IterFold {
-            iter: self.0,
-            fold: f,
-            acc: init,
-        }
+        combinators_impl::iter_fold(self.0, f, init)
     }
 }
 impl<I, P> Pattern for Iter<I>
@@ -150,24 +69,6 @@ impl<I, P> Pattern for Iter<I>
           P: Pattern
 {
     type Value = ();
-}
-#[derive(Debug)]
-pub struct IterFold<I, F, T> {
-    iter: I,
-    fold: F,
-    acc: T,
-}
-impl<I, F, T> IterFold<I, F, T> {
-    pub fn unwrap(self) -> (I, F, T) {
-        (self.iter, self.fold, self.acc)
-    }
-}
-impl<I, P, F, T> Pattern for IterFold<I, F, T>
-    where I: Iterator<Item = P>,
-          P: Pattern,
-          F: Fn(T, P::Value) -> T
-{
-    type Value = T;
 }
 
 impl<P> Pattern for Option<P>
@@ -201,39 +102,72 @@ impl_tuple_pattern!(P0, P1, P2, P3, P4, P5, P6, P7);
 impl_tuple_pattern!(P0, P1, P2, P3, P4, P5, P6, P7, P8);
 impl_tuple_pattern!(P0, P1, P2, P3, P4, P5, P6, P7, P8, P9);
 
-macro_rules! define_branch {
-    ($name:ident, $p0:ident, $($p:ident,)*) => {
-        #[derive(Debug, Clone)]
-        pub enum $name<$p0, $($p,)*> {
-            $p0($p0),
-            $($p($p),)*
-        }
-        impl<$p0:Pattern, $($p,)*> Pattern for $name<$p0, $($p,)*>
-            where $($p: Pattern<Value = $p0::Value>,)*
-        {
-            type Value = $p0::Value;
+pub enum Branch<A, B = A, C = A, D = A, E = A, F = A, G = A, H = A> {
+    A(A),
+    B(B),
+    C(C),
+    D(D),
+    E(E),
+    F(F),
+    G(G),
+    H(H),
+}
+impl<A, B, C, D, E, F, G, H> Pattern for Branch<A, B, C, D, E, F, G, H>
+    where A: Pattern,
+          B: Pattern<Value = A::Value>,
+          C: Pattern<Value = A::Value>,
+          D: Pattern<Value = A::Value>,
+          E: Pattern<Value = A::Value>,
+          F: Pattern<Value = A::Value>,
+          G: Pattern<Value = A::Value>,
+          H: Pattern<Value = A::Value>
+{
+    type Value = A::Value;
+}
+impl<A, B, C, D, E, F, G, H> Future for Branch<A, B, C, D, E, F, G, H>
+    where A: Future,
+          B: Future<Item = A::Item, Error = A::Error>,
+          C: Future<Item = A::Item, Error = A::Error>,
+          D: Future<Item = A::Item, Error = A::Error>,
+          E: Future<Item = A::Item, Error = A::Error>,
+          F: Future<Item = A::Item, Error = A::Error>,
+          G: Future<Item = A::Item, Error = A::Error>,
+          H: Future<Item = A::Item, Error = A::Error>
+{
+    type Item = A::Item;
+    type Error = A::Error;
+    fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
+        match *self {
+            Branch::A(ref mut f) => f.poll(),
+            Branch::B(ref mut f) => f.poll(),
+            Branch::C(ref mut f) => f.poll(),
+            Branch::D(ref mut f) => f.poll(),
+            Branch::E(ref mut f) => f.poll(),
+            Branch::F(ref mut f) => f.poll(),
+            Branch::G(ref mut f) => f.poll(),
+            Branch::H(ref mut f) => f.poll(),
         }
     }
 }
 
-define_branch!(Branch2, P0, P1,);
-define_branch!(Branch3, P0, P1, P2,);
-define_branch!(Branch4, P0, P1, P2, P3,);
-define_branch!(Branch5, P0, P1, P2, P3, P4,);
-define_branch!(Branch6, P0, P1, P2, P3, P4, P5,);
-define_branch!(Branch7, P0, P1, P2, P3, P4, P5, P6,);
-define_branch!(Branch8, P0, P1, P2, P3, P4, P5, P6, P7,);
+pub trait AllowPartial: Sized {
+    fn allow_partial(self) -> combinators::PartialBuf<Self> {
+        combinators_impl::PartialBuf(self)
+    }
+}
 
 impl Pattern for Vec<u8> {
     type Value = Self;
 }
+impl AllowPartial for Vec<u8> {}
 
 impl Pattern for String {
     type Value = Self;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Buf<B>(pub B);
+impl<B> AllowPartial for Buf<B> {}
 impl<B: AsRef<[u8]>> AsRef<[u8]> for Buf<B> {
     fn as_ref(&self) -> &[u8] {
         &self.0.as_ref()[..]
@@ -248,12 +182,13 @@ impl<B> Pattern for Buf<B> {
     type Value = B;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Window<B> {
     inner: B,
     start: usize,
     end: usize,
 }
+impl<B> AllowPartial for Window<B> {}
 impl<B: AsRef<[u8]>> Window<B> {
     pub fn new(buf: B) -> Self {
         let end = buf.as_ref().len();
@@ -317,26 +252,10 @@ impl<B> Pattern for Window<B> {
 }
 
 pub trait Endian: Sized {
-    fn le(self) -> LE<Self> {
-        LE(self)
+    fn le(self) -> combinators::LE<Self> {
+        combinators::LE(self)
     }
-    fn be(self) -> BE<Self> {
-        BE(self)
+    fn be(self) -> combinators::BE<Self> {
+        combinators::BE(self)
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct LE<T>(pub T);
-impl<T> Pattern for LE<T>
-    where T: Endian + Pattern
-{
-    type Value = T::Value;
-}
-
-#[derive(Debug, Clone)]
-pub struct BE<T>(pub T);
-impl<T> Pattern for BE<T>
-    where T: Endian + Pattern
-{
-    type Value = T::Value;
 }

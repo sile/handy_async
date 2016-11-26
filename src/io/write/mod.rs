@@ -1,27 +1,37 @@
 use std::io::{self, Write};
-use futures::{Poll, Async, Future};
+use futures::{self, Poll, Async, Future};
 
 use pattern::{Pattern, Window};
-use super::IoFuture;
+use super::futures::IoFuture;
+use super::common::Phase;
 
+pub mod primitives;
 pub mod combinators;
 
 pub trait WriteTo<W: Write>: Pattern {
     type Future: Future<Item = (W, Self::Value), Error = (W, io::Error)>;
 
-    fn write_to(self, writer: W) -> Self::Future;
+    fn lossless_write_to(self, writer: W) -> Self::Future;
 
+    fn write_to(self, writer: W) -> LossyWriteTo<W, Self::Future> {
+        fn conv<W>((_, e): (W, io::Error)) -> io::Error {
+            e
+        };
+        self.lossless_write_to(writer).map_err(conv as _)
+    }
     fn sync_write_to(self, writer: W) -> io::Result<Self::Value> {
-        self.write_to(writer).map(|(_, v)| v).map_err(|(_, e)| e).wait()
+        self.lossless_write_to(writer).map(|(_, v)| v).map_err(|(_, e)| e).wait()
     }
     fn boxed(self) -> BoxWriteTo<W, Self::Value>
         where Self: Send + 'static,
               Self::Future: Send + 'static
     {
-        let mut f = Some(move |writer: W| self.write_to(writer).boxed());
+        let mut f = Some(move |writer: W| self.lossless_write_to(writer).boxed());
         BoxWriteTo(Box::new(move |writer| (f.take().unwrap())(writer)))
     }
 }
+
+pub type LossyWriteTo<W, F> = futures::MapErr<F, fn((W, io::Error)) -> io::Error>;
 
 pub struct BoxWriteTo<W, T>(Box<FnMut(W) -> IoFuture<W, T>>);
 impl<W, T> Pattern for BoxWriteTo<W, T> {
@@ -29,7 +39,7 @@ impl<W, T> Pattern for BoxWriteTo<W, T> {
 }
 impl<W: Write, T> WriteTo<W> for BoxWriteTo<W, T> {
     type Future = IoFuture<W, T>;
-    fn write_to(mut self, writer: W) -> Self::Future {
+    fn lossless_write_to(mut self, writer: W) -> Self::Future {
         (self.0)(writer)
     }
 }
@@ -43,6 +53,12 @@ pub trait AsyncWrite: Write + Sized {
     }
     fn async_flush(self) -> Flush<Self> {
         Flush(Some(self))
+    }
+    fn async_write_stream<S>(self, stream: S) -> WriteStream<Self, S>
+        where S: futures::Stream<Error = io::Error>,
+              S::Item: WriteTo<Self>
+    {
+        WriteStream(Phase::A((self, stream)))
     }
 }
 impl<W: Write> AsyncWrite for W {}
@@ -107,6 +123,46 @@ impl<W: Write> Future for Flush<W> {
                     Err((w, e))
                 }
             }
+        }
+    }
+}
+
+pub struct WriteStream<W, S>(Phase<(W, S), (<S::Item as WriteTo<W>>::Future, S)>)
+    where W: Write,
+          S: futures::Stream,
+          S::Item: WriteTo<W>;
+impl<W: Write, S> futures::Stream for WriteStream<W, S>
+    where S: futures::Stream<Error = io::Error>,
+          S::Item: WriteTo<W>
+{
+    type Item = <S::Item as Pattern>::Value;
+    type Error = (W, io::Error);
+    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+        match self.0.take() {
+            Phase::A((w, mut s)) => {
+                match s.poll() {
+                    Err(e) => Err((w, e)),
+                    Ok(Async::NotReady) => {
+                        self.0 = Phase::A((w, s));
+                        Ok(Async::NotReady)
+                    }
+                    Ok(Async::Ready(None)) => Ok(Async::Ready(None)),
+                    Ok(Async::Ready(Some(p))) => {
+                        self.0 = Phase::B((p.lossless_write_to(w), s));
+                        self.poll()
+                    }
+                }
+            }
+            Phase::B((mut f, s)) => {
+                if let Async::Ready((w, v)) = f.poll()? {
+                    self.0 = Phase::A((w, s));
+                    Ok(Async::Ready(Some(v)))
+                } else {
+                    self.0 = Phase::B((f, s));
+                    Ok(Async::NotReady)
+                }
+            }
+            _ => panic!("Cannot poll ReadStream which has been finished"),
         }
     }
 }

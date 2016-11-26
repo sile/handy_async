@@ -129,11 +129,3 @@ pub struct Eos;
 impl Pattern for Eos {
     type Value = Result<(), u8>;
 }
-
-#[derive(Debug)]
-pub struct Until<F>(pub F);
-impl<F> Pattern for Until<F>
-    where F: for<'a> Fn(&'a [u8], usize) -> bool
-{
-    type Value = Vec<u8>;
-}

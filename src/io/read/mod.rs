@@ -1,9 +1,10 @@
 use std::io::{self, Read};
-use std::mem;
-use futures::{Poll, Async, Future, Stream};
+use std::fmt;
+use futures::{self, Poll, Async, Future};
 
-use super::IoFuture;
 use pattern::{Pattern, Window};
+use super::futures::IoFuture;
+use super::common::Phase;
 
 pub mod primitives;
 pub mod combinators;
@@ -11,19 +12,27 @@ pub mod combinators;
 pub trait ReadFrom<R: Read>: Pattern {
     type Future: Future<Item = (R, Self::Value), Error = (R, io::Error)>;
 
-    fn read_from(self, reader: R) -> Self::Future;
+    fn lossless_read_from(self, reader: R) -> Self::Future;
 
+    fn read_fromy(self, reader: R) -> LossyReadFrom<R, Self::Future> {
+        fn conv<R>((_, e): (R, io::Error)) -> io::Error {
+            e
+        }
+        self.lossless_read_from(reader).map_err(conv as _)
+    }
     fn sync_read_from(self, reader: R) -> io::Result<Self::Value> {
-        self.read_from(reader).map(|(_, v)| v).map_err(|(_, e)| e).wait()
+        self.lossless_read_from(reader).map(|(_, v)| v).map_err(|(_, e)| e).wait()
     }
     fn boxed(self) -> BoxReadFrom<R, Self::Value>
         where Self: Send + 'static,
               Self::Future: Send + 'static
     {
-        let mut f = Some(move |reader: R| self.read_from(reader).boxed());
+        let mut f = Some(move |reader: R| self.lossless_read_from(reader).boxed());
         BoxReadFrom(Box::new(move |reader| (f.take().unwrap())(reader)))
     }
 }
+
+pub type LossyReadFrom<R, F> = futures::MapErr<F, fn((R, io::Error)) -> io::Error>;
 
 pub struct BoxReadFrom<R, T>(Box<FnMut(R) -> IoFuture<R, T>>);
 impl<R, T> Pattern for BoxReadFrom<R, T> {
@@ -31,14 +40,19 @@ impl<R, T> Pattern for BoxReadFrom<R, T> {
 }
 impl<R: Read, T> ReadFrom<R> for BoxReadFrom<R, T> {
     type Future = IoFuture<R, T>;
-    fn read_from(mut self, reader: R) -> Self::Future {
+    fn lossless_read_from(mut self, reader: R) -> Self::Future {
         (self.0)(reader)
     }
 }
+impl<R, T> fmt::Debug for BoxReadFrom<R, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "BoxReadfrom(..)")
+    }
+}
 
-pub trait AsyncRead: Read + Sized {
+pub trait AsyncRead: io::Read + Sized {
     fn async_read<B: AsMut<[u8]>>(self, buf: B) -> ReadBytes<Self, B> {
-        ReadBytes::State(self, buf)
+        ReadBytes(Some((self, buf)))
     }
     fn async_read_non_empty<B: AsMut<[u8]>>(self, buf: B) -> ReadNonEmpty<Self, B> {
         ReadNonEmpty(self.async_read(buf))
@@ -52,8 +66,11 @@ pub trait AsyncRead: Read + Sized {
     {
         ReadFold(Some((self.async_read(buf), init, f)))
     }
-    fn into_bytes_stream(self, buffer_size: usize) -> BytesStream<Self> {
-        BytesStream(self.async_read(vec![0; buffer_size]))
+    fn async_read_stream<S>(self, stream: S) -> ReadStream<Self, S>
+        where S: futures::Stream<Error = io::Error>,
+              S::Item: ReadFrom<Self>
+    {
+        ReadStream(Phase::A((self, stream)))
     }
 }
 impl<R: Read> AsyncRead for R {}
@@ -86,25 +103,6 @@ impl<R: Read, F, B, T> Future for ReadFold<R, F, B, T>
 }
 
 #[derive(Debug)]
-pub struct BytesStream<R>(ReadBytes<R, Vec<u8>>);
-impl<R: Read> Stream for BytesStream<R> {
-    type Item = Vec<u8>;
-    type Error = (R, io::Error);
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        if let Async::Ready((r, b, size)) = self.0.poll().map_err(|(r, _, e)| (r, e))? {
-            if size == 0 {
-                Ok(Async::Ready(None))
-            } else {
-                let bytes = Vec::from(&b[0..b.len()]);
-                self.0 = r.async_read(b);
-                Ok(Async::Ready(Some(bytes)))
-            }
-        } else {
-            Ok(Async::NotReady)
-        }
-    }
-}
-#[derive(Debug)]
 pub struct ReadNonEmpty<R, B>(ReadBytes<R, B>);
 impl<R: Read, B: AsMut<[u8]>> Future for ReadNonEmpty<R, B> {
     type Item = (R, B, usize);
@@ -126,29 +124,22 @@ impl<R: Read, B: AsMut<[u8]>> Future for ReadNonEmpty<R, B> {
 }
 
 #[derive(Debug)]
-pub enum ReadBytes<R, B> {
-    State(R, B),
-    Polled,
-}
+pub struct ReadBytes<R, B>(Option<(R, B)>);
 impl<R: Read, B: AsMut<[u8]>> Future for ReadBytes<R, B> {
     type Item = (R, B, usize);
     type Error = (R, B, io::Error);
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match mem::replace(self, ReadBytes::Polled) {
-            ReadBytes::State(mut inner, mut buf) => {
-                match inner.read(buf.as_mut()) {
-                    Ok(size) => Ok(Async::Ready((inner, buf, size))),
-                    Err(e) => {
-                        if e.kind() == io::ErrorKind::WouldBlock {
-                            *self = ReadBytes::State(inner, buf);
-                            Ok(Async::NotReady)
-                        } else {
-                            Err((inner, buf, e))
-                        }
-                    }
+        let (mut inner, mut buf) = self.0.take().expect("Cannot poll ReadBytes twice");
+        match inner.read(buf.as_mut()) {
+            Ok(size) => Ok(Async::Ready((inner, buf, size))),
+            Err(e) => {
+                if e.kind() == io::ErrorKind::WouldBlock {
+                    self.0 = Some((inner, buf));
+                    Ok(Async::NotReady)
+                } else {
+                    Err((inner, buf, e))
                 }
             }
-            ReadBytes::Polled => panic!("Cannot poll Read twice"),
         }
     }
 }
@@ -174,6 +165,48 @@ impl<R, B> Future for ReadExact<R, B>
             }
         } else {
             Ok(Async::NotReady)
+        }
+    }
+}
+
+pub struct ReadStream<R, S>(Phase<(R, S), (<S::Item as ReadFrom<R>>::Future, S)>)
+    where R: Read,
+          S: futures::Stream,
+          S::Item: ReadFrom<R>;
+impl<R: Read, S> futures::Stream for ReadStream<R,S>
+    where S: futures::Stream<Error = io::Error>,
+          S::Item: ReadFrom<R>
+{
+    type Item = <S::Item as Pattern>::Value;
+    type Error = (R, io::Error);
+    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+        match self.0.take() {
+            Phase::A((r, mut s)) => {
+                match s.poll() {
+                    Err(e) => Err((r, e)),
+                    Ok(Async::NotReady) => {
+                        self.0 = Phase::A((r, s));
+                        Ok(Async::NotReady)
+                    }
+                    Ok(Async::Ready(None)) => {
+                        Ok(Async::Ready(None))
+                    }
+                    Ok(Async::Ready(Some(p))) => {
+                        self.0 = Phase::B((p.lossless_read_from(r), s));
+                        self.poll()
+                    }
+                }
+            }
+            Phase::B((mut f, s)) => {
+                if let Async::Ready((r, v)) = f.poll()? {
+                    self.0 = Phase::A((r, s));
+                    Ok(Async::Ready(Some(v)))
+                } else {
+                    self.0 = Phase::B((f, s));
+                    Ok(Async::NotReady)
+                }
+            }
+            _ => panic!("Cannot poll ReadStream which has been finished") 
         }
     }
 }
