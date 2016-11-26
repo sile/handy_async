@@ -37,8 +37,7 @@ struct TcpHeader {
 }
 
 fn read_tcp_header<R: Read + Send + 'static>(reader: R) -> BoxFuture<TcpHeader, Error> {
-    let pattern = (U16.be(), U16.be(), U32.be(), U32.be(),
-                   U16.be(), U16.be(), U16.be(), U16.be())
+    let pattern = (U16.be(), U16.be(), U32.be(), U32.be(), U16.be(), U16.be(), U16.be(), U16.be())
         .and_then(|(src_port, dst_port, seq_num, ack_num, flags, window, checksum, urgent)| {
             let data_offset = (flags & 0b1111) as u8;
             let header = TcpHeader {
