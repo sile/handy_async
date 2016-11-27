@@ -17,6 +17,20 @@ impl<W: Write> WriteTo<W> for write::Flush {
     }
 }
 
+/// A future which will write bytes contained in the buffer `B` to `W`.
+///
+/// This future is generally created by invoking
+/// `WriteTo::write_to` method for buffer like patterns
+/// such as the following.
+///
+/// ```
+/// use handy_io::io::WriteTo;
+/// use handy_io::pattern::{Buf, Window};
+///
+/// vec![0; 32].write_to(std::io::sink());
+/// Buf([0; 32]).write_to(std::io::sink());
+/// Window::new([0; 32]).skip(4).write_to(std::io::sink());
+/// ```
 pub type WriteBuf<W, B> = futures::MapErr<super::WriteAll<W, B>,
                                           fn((W, B, io::Error)) -> (W, io::Error)>;
 impl<W: Write, B: AsRef<[u8]>> WriteTo<W> for pattern::Buf<B> {
@@ -29,6 +43,22 @@ impl<W: Write, B: AsRef<[u8]>> WriteTo<W> for pattern::Buf<B> {
     }
 }
 
+/// A future which will write bytes contained in the buffer `B` to `W`
+/// to the extent possible.
+///
+/// This future is generally created by invoking
+/// `WriteTo::write_to` method for `PartialBuf` pattern
+/// such as the following.
+///
+/// ```
+/// use handy_io::io::WriteTo;
+/// use handy_io::pattern::AllowPartial;
+///
+/// // `PartialBuf` pattern is created via `allow_partial` method.
+/// let pattern = vec![0; 32].allow_partial();
+/// let (_, written_size) = pattern.sync_write_to(&mut &mut [0; 4][..]).unwrap();
+/// assert_eq!(written_size, 4);
+/// ```
 pub struct WritePartialBuf<W, B>(WriteBytes<W, B>);
 impl<W: Write, B: AsRef<[u8]>> Future for WritePartialBuf<W, B> {
     type Item = (W, (B, usize));

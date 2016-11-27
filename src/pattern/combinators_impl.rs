@@ -3,9 +3,14 @@ use futures::{self, Poll, Async};
 
 use super::{Pattern, Endian};
 
+/// A pattern for the `then` combinator,
+/// chaining a pattern on the end of another pattern regardless of its evaluation result.
+///
+/// This pattern is created by calling `Pattern::then` method.
 #[derive(Debug)]
 pub struct Then<P, F>(P, F);
 impl<P, F> Then<P, F> {
+    #[allow(missing_docs)]
     pub fn unwrap(self) -> (P, F) {
         (self.0, self.1)
     }
@@ -21,9 +26,14 @@ pub fn then<P, F>(pattern: P, then: F) -> Then<P, F> {
     Then(pattern, then)
 }
 
+/// A pattern for the `and_then` combinator,
+/// chaining a pattern on the end of another pattern which evaluated successfully.
+///
+/// This pattern is created by calling `Pattern::and_then` method.
 #[derive(Debug)]
 pub struct AndThen<P, F>(P, F);
 impl<P, F> AndThen<P, F> {
+    #[allow(missing_docs)]
     pub fn unwrap(self) -> (P, F) {
         (self.0, self.1)
     }
@@ -39,9 +49,14 @@ pub fn and_then<P, F>(pattern: P, and_then: F) -> AndThen<P, F> {
     AndThen(pattern, and_then)
 }
 
+/// A pattern for the `or_else` combinator,
+/// chaining a pattern on the end of another pattern which evaluation fails with an error.
+///
+/// This pattern is created by calling `Pattern::or_else` method.
 #[derive(Debug)]
 pub struct OrElse<P, F>(P, F);
 impl<P, F> OrElse<P, F> {
+    #[allow(missing_docs)]
     pub fn unwrap(self) -> (P, F) {
         (self.0, self.1)
     }
@@ -57,9 +72,13 @@ pub fn or_else<P, F>(pattern: P, or_else: F) -> OrElse<P, F> {
     OrElse(pattern, or_else)
 }
 
+/// A pattern for the `map` combinator, mapping a value of a pattern to another value.
+///
+/// This pattern is created by calling `Pattern::map` method.
 #[derive(Debug)]
 pub struct Map<P, F>(P, F);
 impl<P, F> Map<P, F> {
+    #[allow(missing_docs)]
     pub fn unwrap(self) -> (P, F) {
         (self.0, self.1)
     }
@@ -74,9 +93,14 @@ pub fn map<P, F>(pattern: P, map: F) -> Map<P, F> {
     Map(pattern, map)
 }
 
+/// A pattern for the `chain` combinator,
+/// chaining values of the two pattern `P0` and `P1` as a tuple value.
+///
+/// This pattern is created by calling `Pattern::chain` method.
 #[derive(Debug, Clone)]
 pub struct Chain<P0, P1>(P0, P1);
 impl<P0, P1> Chain<P0, P1> {
+    #[allow(missing_docs)]
     pub fn unwrap(self) -> (P0, P1) {
         (self.0, self.1)
     }
@@ -91,9 +115,14 @@ pub fn chain<P0, P1>(p0: P0, p1: P1) -> Chain<P0, P1> {
     Chain(p0, p1)
 }
 
+/// A pattern for the `fold` combinator,
+/// folding values of the patterns contained in a iterator to produce final value.
+///
+/// This pattern is created by calling `Iter::fold` method.
 #[derive(Debug)]
 pub struct IterFold<I, F, T>(I, F, T);
 impl<I, F, T> IterFold<I, F, T> {
+    #[allow(missing_docs)]
     pub fn unwrap(self) -> (I, F, T) {
         (self.0, self.1, self.2)
     }
@@ -109,7 +138,9 @@ pub fn iter_fold<I, F, T>(iter: I, fold: F, init: T) -> IterFold<I, F, T> {
     IterFold(iter, fold, init)
 }
 
-
+/// A pattern to indicates that "T is a little endian value".
+///
+/// This pattern is created by calling `Endian::le` method.
 #[derive(Debug, Clone)]
 pub struct LE<T>(pub T);
 impl<T> Pattern for LE<T>
@@ -118,6 +149,9 @@ impl<T> Pattern for LE<T>
     type Value = T::Value;
 }
 
+/// A pattern to indicates that "T is a big endian value".
+///
+/// This pattern is created by calling `Endian::be` method.
 #[derive(Debug, Clone)]
 pub struct BE<T>(pub T);
 impl<T> Pattern for BE<T>
@@ -126,6 +160,9 @@ impl<T> Pattern for BE<T>
     type Value = T::Value;
 }
 
+/// A pattern to indicates that "B is a partially evaluable buffer".
+///
+/// This pattern is created by calling `AllowPartial::allow_partial` method.
 #[derive(Debug, Clone)]
 pub struct PartialBuf<B>(pub B);
 impl<B: AsRef<[u8]>> AsRef<[u8]> for PartialBuf<B> {
@@ -142,6 +179,9 @@ impl<B> Pattern for PartialBuf<B> {
     type Value = (B, usize);
 }
 
+/// A pattern which represents infinite stream of `P`.
+///
+/// This pattern is created by calling `Pattern::repeat` method.
 pub struct Repeat<P>(P);
 impl<P> futures::Stream for Repeat<P>
     where P: Clone + Pattern

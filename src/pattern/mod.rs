@@ -1,9 +1,13 @@
+//! Patterns.
+
 use std::io;
 use futures::{self, Future};
 
 pub mod read;
 pub mod write;
 pub mod combinators {
+    //! Patterns to combinate other patterns.
+
     pub use super::combinators_impl::Then;
     pub use super::combinators_impl::AndThen;
     pub use super::combinators_impl::OrElse;
@@ -17,34 +21,54 @@ pub mod combinators {
 }
 mod combinators_impl;
 
+/// Pattern.
 pub trait Pattern: Sized {
+    /// The value type associated to the pattern.
     type Value;
 
+    /// Takes a closure which maps a `Result<Self::Value>` to a pattern, and
+    /// creates a pattern which calls that closure on the evaluation result of `self`.
     fn then<F, P>(self, f: F) -> combinators::Then<Self, F>
         where F: FnOnce(io::Result<Self::Value>) -> P
     {
         combinators_impl::then(self, f)
     }
+
+    /// Takes a closure which maps a value to a pattern, and
+    /// creates a pattern which calls that closure if the evaluation of `self` was succeeded.
     fn and_then<F, P>(self, f: F) -> combinators::AndThen<Self, F>
         where F: FnOnce(Self::Value) -> P
     {
         combinators_impl::and_then(self, f)
     }
+
+    /// Takes a closure which maps an error to a pattern, and
+    /// creates a pattern which calls that closure if the evaluation of `self` failed.
     fn or_else<F, P>(self, f: F) -> combinators::OrElse<Self, F>
         where F: FnOnce(io::Error) -> P
     {
         combinators_impl::or_else(self, f)
     }
+
+    /// Takes a closure which maps a value to another value, and
+    /// creates a pattern which calls that closure on the evaluated value of `self`.
     fn map<F, T>(self, f: F) -> combinators::Map<Self, F>
         where F: FnOnce(Self::Value) -> T
     {
         combinators_impl::map(self, f)
     }
+
+    /// Takes two patterns and creates a new pattern over both in sequence.
+    ///
+    /// In generally, using the tuple pattern `(self, P)` is more convenient way to
+    /// achieve the same effect.
     fn chain<P>(self, other: P) -> combinators::Chain<Self, P>
         where P: Pattern
     {
         combinators_impl::chain(self, other)
     }
+
+    /// Creates `Repeat` pattern to represent an infinite stream of this pattern.
     fn repeat(self) -> combinators::Repeat<Self>
         where Self: Clone
     {
@@ -52,12 +76,15 @@ pub trait Pattern: Sized {
     }
 }
 
+/// A pattern which represents a sequence of a pattern `P`.
 #[derive(Debug)]
 pub struct Iter<I>(pub I);
 impl<I, P> Iter<I>
     where I: Iterator<Item = P>,
           P: Pattern
 {
+    /// Creates `IterFold` combinator to fold the values of
+    /// the patterns contained in the iterator `I`.
     pub fn fold<F, T>(self, init: T, f: F) -> combinators::IterFold<I, F, T>
         where F: Fn(T, P::Value) -> T
     {
@@ -102,6 +129,10 @@ impl_tuple_pattern!(P0, P1, P2, P3, P4, P5, P6, P7);
 impl_tuple_pattern!(P0, P1, P2, P3, P4, P5, P6, P7, P8);
 impl_tuple_pattern!(P0, P1, P2, P3, P4, P5, P6, P7, P8, P9);
 
+/// A pattern which represents branches in a pattern.
+///
+/// All branches must have the same resulting value type.
+#[allow(missing_docs)]
 pub enum Branch<A, B = A, C = A, D = A, E = A, F = A, G = A, H = A> {
     A(A),
     B(B),
@@ -150,7 +181,9 @@ impl<A, B, C, D, E, F, G, H> Future for Branch<A, B, C, D, E, F, G, H>
     }
 }
 
+/// A trait to indicate that a pattern is partially evaluable.
 pub trait AllowPartial: Sized {
+    /// Indicates that this pattern is partially evaluable.
     fn allow_partial(self) -> combinators::PartialBuf<Self> {
         combinators_impl::PartialBuf(self)
     }
@@ -165,6 +198,7 @@ impl Pattern for String {
     type Value = Self;
 }
 
+/// A pattern which represents byte oriented buffer like values.
 #[derive(Debug, Clone)]
 pub struct Buf<B>(pub B);
 impl<B> AllowPartial for Buf<B> {}
@@ -182,6 +216,7 @@ impl<B> Pattern for Buf<B> {
     type Value = B;
 }
 
+/// A pattern which represents a window of a byte oriented buffer.
 #[derive(Debug, Clone)]
 pub struct Window<B> {
     inner: B,
@@ -190,11 +225,13 @@ pub struct Window<B> {
 }
 impl<B> AllowPartial for Window<B> {}
 impl<B: AsRef<[u8]> + AsMut<[u8]>> Window<B> {
+    /// Makes new window.
     pub fn new(buf: B) -> Self {
         Self::new_ref(buf)
     }
 }
 impl<B: AsRef<[u8]>> Window<B> {
+    /// Makes new window for an immutable buffer.
     pub fn new_ref(buf: B) -> Self {
         let end = buf.as_ref().len();
         Window {
@@ -205,6 +242,7 @@ impl<B: AsRef<[u8]>> Window<B> {
     }
 }
 impl<B: AsMut<[u8]>> Window<B> {
+    /// Makes new window for an mutable buffer.
     pub fn new_mut(mut buf: B) -> Self {
         let end = buf.as_mut().len();
         Window {
@@ -215,26 +253,39 @@ impl<B: AsMut<[u8]>> Window<B> {
     }
 }
 impl<B> Window<B> {
+    /// Returns the immutable reference of the internal buffer.
     pub fn inner_ref(&self) -> &B {
         &self.inner
     }
+
+    /// Returns the mutable reference of the internal buffer.
     pub fn inner_mut(&mut self) -> &mut B {
         &mut self.inner
     }
+
+    /// Converts to the internal buffer.
     pub fn into_inner(self) -> B {
         self.inner
     }
+
+    /// Returns the start point of the window.
     pub fn start(&self) -> usize {
         self.start
     }
+
+    /// Returns the end point of the window.
     pub fn end(&self) -> usize {
         self.end
     }
+
+    /// Converts to new window which skipped first `size` bytes of `self`.
     pub fn skip(mut self, size: usize) -> Self {
         assert!(self.start + size <= self.end);
         self.start += size;
         self
     }
+
+    /// Converts to new window which took first `size` bytes of `self`.
     pub fn take(mut self, size: usize) -> Self {
         assert!(size <= self.end);
         assert!(self.start <= self.end - size);
@@ -256,10 +307,14 @@ impl<B> Pattern for Window<B> {
     type Value = Self;
 }
 
+/// A trait to indicates endianness of a pattern.
 pub trait Endian: Sized {
+    /// Indicates that "This is a little endian pattern".
     fn le(self) -> combinators::LE<Self> {
         combinators::LE(self)
     }
+
+    /// Indicates that "This is a big endian pattern".
     fn be(self) -> combinators::BE<Self> {
         combinators::BE(self)
     }

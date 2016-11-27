@@ -5,17 +5,20 @@ use pattern::{self, Pattern, Branch};
 use super::WriteTo;
 use super::super::common::{self, Phase};
 
-pub type WriteResult<W, T> = futures::Done<(W, T), (W, io::Error)>;
-impl<W: Write, T> WriteTo<W> for io::Result<T> {
-    type Future = WriteResult<W, T>;
-    fn lossless_write_to(self, writer: W) -> Self::Future {
-        futures::done(match self {
-            Ok(v) => Ok((writer, v)),
-            Err(e) => Err((writer, e)),
-        })
-    }
-}
-
+/// A future for writing `Then` pattern.
+///
+/// # Example
+///
+/// ```
+/// use handy_io::io::WriteTo;
+/// use handy_io::pattern::Pattern;
+///
+/// let then_pattern = 1u8.then(|r| if r.is_ok() { Ok(true) } else { Ok(false) });
+/// let mut buf = [0; 1];
+/// let value = then_pattern.sync_write_to(&mut &mut buf[..]).unwrap();
+/// assert_eq!(value, true);
+/// assert_eq!(buf, [1]);
+/// ```
 pub struct WriteThen<W: Write, P0, P1, F>(Phase<(P0::Future, F), P1::Future>)
     where P0: WriteTo<W>,
           P1: WriteTo<W>;
@@ -49,7 +52,7 @@ impl<W: Write, P0, P1, F> Future for WriteThen<W, P0, P1, F>
                 if let Async::NotReady = result {
                     self.0 = Phase::B(f);
                 }
-                Ok(Async::NotReady)
+                Ok(result)
             }
             _ => panic!("Cannot poll WriteThen twice"),
         }
@@ -67,6 +70,19 @@ impl<W: Write, P0, P1, F> WriteTo<W> for pattern::combinators::Then<P0, F>
     }
 }
 
+/// A future for writing `AndThen` pattern.
+///
+/// # Example
+///
+/// ```
+/// use handy_io::io::WriteTo;
+/// use handy_io::pattern::Pattern;
+///
+/// let and_then_pattern = 0u8.and_then(|_| 1u8);
+/// let mut buf = [0; 2];
+/// and_then_pattern.sync_write_to(&mut &mut buf[..]).unwrap();
+/// assert_eq!(buf, [0, 1]);
+/// ```
 pub struct WriteAndThen<W, P0, P1, F>(WriteAndThenInner<W, P0, P1, F>)
     where P0: WriteTo<W>,
           P1: WriteTo<W>,
@@ -105,6 +121,20 @@ impl<W: Write, P0, P1, F> WriteTo<W> for pattern::combinators::AndThen<P0, F>
     }
 }
 
+/// A future for writing `OrElse` pattern.
+///
+/// # Example
+///
+/// ```
+/// use std::io::{Error, ErrorKind};
+/// use handy_io::io::WriteTo;
+/// use handy_io::pattern::Pattern;
+///
+/// let or_else_pattern = Err(Error::new(ErrorKind::Other, "")).or_else(|_| Ok(0xFF));
+/// let mut buf = [];
+/// let value = or_else_pattern.sync_write_to(&mut &mut buf[..]).unwrap();
+/// assert_eq!(value, 0xFF);
+/// ```
 pub struct WriteOrElse<W: Write, P0, P1, F>(Phase<(P0::Future, F), P1::Future>)
     where P0: WriteTo<W>,
           P1: WriteTo<W>;
@@ -154,6 +184,19 @@ impl<W: Write, P0, P1, F> WriteTo<W> for pattern::combinators::OrElse<P0, F>
     }
 }
 
+/// A future for writing `Map` pattern.
+///
+/// # Example
+///
+/// ```
+/// use handy_io::io::WriteTo;
+/// use handy_io::pattern::Pattern;
+///
+/// let map_pattern = 0u8.map(|_| 1);
+/// let mut buf = [1];
+/// let value = map_pattern.sync_write_to(&mut &mut buf[..]).unwrap();
+/// assert_eq!(value, 1);
+/// ```
 pub struct WriteMap<W: Write, P, F>(Option<(P::Future, F)>) where P: WriteTo<W>;
 impl<W: Write, P, F, T> Future for WriteMap<W, P, F>
     where P: WriteTo<W>,
@@ -182,6 +225,19 @@ impl<W: Write, P, F, T> WriteTo<W> for pattern::combinators::Map<P, F>
     }
 }
 
+/// A future for writing `Chain` pattern.
+///
+/// # Example
+///
+/// ```
+/// use handy_io::io::WriteTo;
+/// use handy_io::pattern::Pattern;
+///
+/// let chain_pattern = 0u8.chain(1u8).chain(2u8);
+/// let mut buf = [0; 3];
+/// chain_pattern.sync_write_to(&mut &mut buf[..]).unwrap();
+/// assert_eq!(buf, [0, 1, 2]);
+/// ```
 pub struct WriteChain<W: Write, P0, P1>(Phase<(P0::Future, P1), (P1::Future, P0::Value)>)
     where P0: WriteTo<W>,
           P1: WriteTo<W>;
@@ -272,6 +328,20 @@ impl_tuple_write_from!([P0, P1, P2, P3, P4, P5, P6, P7 | P8],
 impl_tuple_write_from!([P0, P1, P2, P3, P4, P5, P6, P7, P8 | P9],
                        [0, 1, 2, 3, 4, 5, 6, 7, 8 | 9]);
 
+/// A future for writing `Branch` pattern.
+///
+/// # Example
+///
+/// ```
+/// use handy_io::io::WriteTo;
+/// use handy_io::pattern::{Pattern, Branch};
+///
+/// let branch_pattern =
+///     0u8.then(|r| if r.is_ok() { Branch::A(Ok(1)) as Branch<_, _> } else { Branch::B(Ok(2)) });
+/// let mut buf = [0];
+/// let value = branch_pattern.sync_write_to(&mut &mut buf[..]).unwrap();
+/// assert_eq!(value, 1);
+/// ```
 pub type WriteBranch<W, A, B, C, D, E, F, G, H>
     where A: WriteTo<W>,
           B: WriteTo<W, Value = A::Value>,
@@ -314,6 +384,19 @@ impl<W: Write, A, B, C, D, E, F, G, H> WriteTo<W> for Branch<A, B, C, D, E, F, G
     }
 }
 
+/// A future for writing `IterFold` pattern.
+///
+/// # Example
+///
+/// ```
+/// use handy_io::io::WriteTo;
+/// use handy_io::pattern::{Pattern, Iter};
+///
+/// let iter_fold_pattern = Iter(vec![0u8, 1u8].into_iter()).fold(0, |acc, _| acc + 1);
+/// let mut buf = [0; 2];
+/// let value = iter_fold_pattern.sync_write_to(&mut &mut buf[..]).unwrap();
+/// assert_eq!(value, 2);
+/// ```
 pub struct WriteIterFold<W: Write, P, I, F, T>(Phase<(P::Future, I, T, F), (W, T)>)
     where P: WriteTo<W>;
 impl<W: Write, I, F, T> Future for WriteIterFold<W, I::Item, I, F, T>
@@ -360,6 +443,19 @@ impl<W: Write, I, F, T> WriteTo<W> for pattern::combinators::IterFold<I, F, T>
     }
 }
 
+/// A future for writing `Iter` pattern.
+///
+/// # Example
+///
+/// ```
+/// use handy_io::io::WriteTo;
+/// use handy_io::pattern::{Pattern, Iter};
+///
+/// let iter_fold_pattern = Iter(vec![0u8, 1, 2].into_iter());
+/// let mut buf = [0; 3];
+/// let value = iter_fold_pattern.sync_write_to(&mut &mut buf[..]).unwrap();
+/// assert_eq!(buf, [0, 1, 2]);
+/// ```
 pub type WriteIter<W, I>
     where I: Iterator,
           I::Item: Pattern = WriteIterFold<W,
@@ -380,6 +476,24 @@ impl<W: Write, I> WriteTo<W> for pattern::Iter<I>
     }
 }
 
+/// A future for writing `Option` pattern.
+///
+/// # Example
+///
+/// ```
+/// use handy_io::io::WriteTo;
+/// use handy_io::pattern::Pattern;
+///
+/// let mut buf = [0];
+///
+/// let none_pattern: Option<u8> = None;
+/// none_pattern.sync_write_to(&mut &mut buf[..]).unwrap();
+/// assert_eq!(buf, [0]);
+///
+/// let some_pattern: Option<u8> = Some(3);
+/// some_pattern.sync_write_to(&mut &mut buf[..]).unwrap();
+/// assert_eq!(buf, [3]);
+/// ```
 pub type WriteOption<W, P> where P: Pattern =
     <Branch<pattern::combinators::Map<P, fn(P::Value) -> Option<P::Value>>,
            io::Result<Option<P::Value>>> as WriteTo<W>>::Future;
@@ -394,5 +508,29 @@ impl<W: Write, P> WriteTo<W> for Option<P>
                 Branch::B(Ok(None)) as Branch<_, _>
             }
             .lossless_write_to(writer)
+    }
+}
+
+/// A future for writing `Result` pattern.
+///
+/// # Example
+///
+/// ```
+/// use handy_io::io::WriteTo;
+/// use handy_io::pattern::Pattern;
+///
+/// let mut buf = [];
+/// let ok_pattern = Ok("value");
+/// let value = ok_pattern.sync_write_to(&mut &mut buf[..]).unwrap();
+/// assert_eq!(value, "value");
+/// ```
+pub type WriteResult<W, T> = futures::Done<(W, T), (W, io::Error)>;
+impl<W: Write, T> WriteTo<W> for io::Result<T> {
+    type Future = WriteResult<W, T>;
+    fn lossless_write_to(self, writer: W) -> Self::Future {
+        futures::done(match self {
+            Ok(v) => Ok((writer, v)),
+            Err(e) => Err((writer, e)),
+        })
     }
 }
