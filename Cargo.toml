@@ -7,7 +7,7 @@ documentation = "https://docs.rs/handy_io"
 homepage = "https://github.com/sile/handy_io"
 repository = "https://github.com/sile/handy_io"
 readme = "README.md"
-keywords = ["futures", "async", "I/O", "pattern"]
+keywords = ["futures", "async", "io", "pattern"]
 license = "MIT"
 
 [dependencies]
