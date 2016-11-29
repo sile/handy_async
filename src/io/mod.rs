@@ -9,7 +9,7 @@ pub mod futures {
     pub type IoFuture<S, T> = ::futures::BoxFuture<(S, T), (S, ::std::io::Error)>;
 
     pub use super::read::{LossyReadFrom, ReadBytes, ReadNonEmpty, ReadExact, ReadFold};
-    pub use super::read::primitives::{ReadBuf, ReadPartialBuf, ReadString, ReadEos};
+    pub use super::read::primitives::{ReadBuf, ReadPartialBuf, ReadString, ReadEos, ReadUntil};
     pub use super::read::combinators::{ReadThen, ReadAndThen, ReadOrElse, ReadMap, ReadChain};
     pub use super::read::combinators::{ReadIter, ReadIterFold, ReadOption, ReadResult, ReadBranch};
 

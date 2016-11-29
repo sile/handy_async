@@ -1,4 +1,7 @@
 //! Patterns specific to reading operation.
+use std::io;
+use std::marker::PhantomData;
+
 use super::{Pattern, Endian};
 
 /// A pattern associated to 8-bit unsigned integers.
@@ -148,4 +151,53 @@ impl Endian for F64 {}
 pub struct Eos;
 impl Pattern for Eos {
     type Value = Result<(), u8>;
+}
+
+/// A pattern which continues reading until the predicate `F` is satisfied.
+#[derive(Debug)]
+pub struct Until<F, T> {
+    pred: F,
+    min_buffer_size: usize,
+    max_buffer_size: usize,
+    _phantom: PhantomData<T>,
+}
+impl<F, T> Until<F, T> {
+    #[allow(missing_docs)]
+    pub fn unwrap(self) -> (F, usize, usize) {
+        (self.pred, self.min_buffer_size, self.max_buffer_size)
+    }
+
+    /// Sets minimum (i.e., initial) buffer size.
+    pub fn min_buffer_size(mut self, size: usize) -> Self {
+        assert!(size > 0);
+        self.min_buffer_size = size;
+        self
+    }
+
+    /// Sets maiximum buffer size allowed to read.
+    pub fn max_buffer_size(mut self, size: usize) -> Self {
+        assert!(size >= self.min_buffer_size);
+        self.max_buffer_size = size;
+        self
+    }
+}
+impl<F, T> Pattern for Until<F, T> {
+    type Value = (Vec<u8>, T);
+}
+
+/// Makes `Until` pattern which continues reading until `F` returns `Ok(Some(T))` or `Err(..)`.
+///
+/// `F` will be called with current read buffer (the first argument) and
+/// `is_eos` flag (the second argument).
+///
+/// If `is_eos == true` and `F` returns `Ok(None)`, it will result in the `UnexpectedEof` error.
+pub fn until<F, T>(f: F) -> Until<F, T>
+    where F: Fn(&[u8], bool) -> io::Result<Option<T>>
+{
+    Until {
+        pred: f,
+        min_buffer_size: 1024,
+        max_buffer_size: 10 * 1024 * 1024,
+        _phantom: PhantomData,
+    }
 }

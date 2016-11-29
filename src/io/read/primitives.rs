@@ -1,11 +1,11 @@
 use std::io::{self, Read};
-use futures::{self, Poll, Future};
+use futures::{self, Poll, Async, Future};
 use byteorder::{ByteOrder, NativeEndian, LittleEndian, BigEndian};
 
 use pattern::{self, Window, Buf, Pattern};
 use pattern::combinators::{BE, LE, PartialBuf};
 use pattern::read;
-use super::{ReadFrom, AsyncRead, ReadExact, ReadNonEmpty};
+use super::{ReadFrom, AsyncRead, ReadExact, ReadBytes, ReadNonEmpty};
 use io::futures as io_futures;
 
 /// A future which will read bytes from `R` to fill the buffer `B` completely.
@@ -223,5 +223,77 @@ impl<R: Read> ReadFrom<R> for read::Eos {
             })
         }
         read::U8.then(to_eos as _).lossless_read_from(reader)
+    }
+}
+
+/// A future which continues reading until `F` returns `Ok(Some(T))` or `Err(..)`.
+///
+/// This future is generally created by invoking
+/// `ReadFrom::read_from` method for `Until` pattern.
+#[derive(Debug)]
+pub struct ReadUntil<R, F, T>
+    where R: Read,
+          F: Fn(&[u8], bool) -> io::Result<Option<T>>
+{
+    read: ReadBytes<R, Window<Vec<u8>>>,
+    pred: F,
+    max_buffer_size: usize,
+}
+impl<R: Read, F, T> Future for ReadUntil<R, F, T>
+    where F: Fn(&[u8], bool) -> io::Result<Option<T>>
+{
+    type Item = (R, (Vec<u8>, T));
+    type Error = (R, io::Error);
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        if let Async::Ready((r, mut b, read_size)) = self.read
+            .poll()
+            .map_err(|(r, _, e)| (r, e))? {
+            let is_eos = read_size == 0;
+            b = b.skip(read_size);
+            let total_read_size = b.start();
+            match (self.pred)(&b.inner_ref()[0..total_read_size], is_eos) {
+                Err(e) => Err((r, e)),
+                Ok(Some(v)) => {
+                    let mut b = b.into_inner();
+                    b.truncate(total_read_size);
+                    Ok(Async::Ready((r, (b, v))))
+                }
+                Ok(None) if is_eos => {
+                    Err((r, io::Error::new(io::ErrorKind::UnexpectedEof, "Unexpected Eof")))
+                }
+                Ok(None) => {
+                    if b.as_ref().is_empty() {
+                        use std::cmp;
+                        let new_len = cmp::min(total_read_size * 2, self.max_buffer_size);
+                        let mut inner = b.into_inner();
+                        if new_len == inner.len() {
+                            let message = format!("Buffer size limit ({} bytes) reached",
+                                                  self.max_buffer_size);
+                            return Err((r, io::Error::new(io::ErrorKind::Other, message)));
+                        }
+                        inner.resize(total_read_size * 2, 0);
+                        b = Window::new(inner).skip(total_read_size);
+                    }
+                    self.read = r.async_read(b);
+                    self.poll()
+                }
+            }
+        } else {
+            Ok(Async::NotReady)
+        }
+    }
+}
+impl<R: Read, F, T> ReadFrom<R> for read::Until<F, T>
+    where F: Fn(&[u8], bool) -> io::Result<Option<T>>
+{
+    type Future = ReadUntil<R, F, T>;
+    fn lossless_read_from(self, reader: R) -> Self::Future {
+        let (pred, min_buffer_size, max_buffer_size) = self.unwrap();
+        let buf = vec![0; min_buffer_size];
+        ReadUntil {
+            read: reader.async_read(Window::new(buf)),
+            pred: pred,
+            max_buffer_size: max_buffer_size,
+        }
     }
 }
