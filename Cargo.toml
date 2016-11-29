@@ -1,6 +1,6 @@
 [package]
 name = "handy_io"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Takeru Ohta <phjgt308@gmail.com>"]
 description = "A handy pattern and futures based asynchronous I/O library"
 documentation = "https://docs.rs/handy_io"
