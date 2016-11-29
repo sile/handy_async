@@ -5,7 +5,7 @@ use byteorder::{ByteOrder, NativeEndian, LittleEndian, BigEndian};
 use pattern::{self, Window, Buf, Pattern};
 use pattern::combinators::{BE, LE, PartialBuf};
 use pattern::read;
-use super::{ReadFrom, AsyncRead, ReadExact, ReadBytes};
+use super::{ReadFrom, AsyncRead, ReadExact, ReadNonEmpty};
 use io::futures as io_futures;
 
 /// A future which will read bytes from `R` to fill the buffer `B` completely.
@@ -68,7 +68,7 @@ impl<R: Read, B: AsMut<[u8]>> ReadFrom<R> for Window<B> {
 /// let (_, read_size) = pattern.sync_read_from(&mut &[0; 4][..]).unwrap();
 /// assert_eq!(read_size, 4);
 /// ```
-pub struct ReadPartialBuf<R, B>(ReadBytes<R, B>);
+pub struct ReadPartialBuf<R, B>(ReadNonEmpty<R, B>);
 impl<R: Read, B: AsMut<[u8]>> Future for ReadPartialBuf<R, B> {
     type Item = (R, (B, usize));
     type Error = (R, io::Error);
@@ -79,7 +79,7 @@ impl<R: Read, B: AsMut<[u8]>> Future for ReadPartialBuf<R, B> {
 impl<R: Read, B: AsMut<[u8]>> ReadFrom<R> for PartialBuf<B> {
     type Future = ReadPartialBuf<R, B>;
     fn lossless_read_from(self, reader: R) -> Self::Future {
-        ReadPartialBuf(reader.async_read(self.0))
+        ReadPartialBuf(reader.async_read_non_empty(self.0))
     }
 }
 
