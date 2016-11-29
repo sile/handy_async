@@ -240,6 +240,14 @@ impl<B: AsRef<[u8]>> Window<B> {
             end: end,
         }
     }
+
+    /// Sets end position of the window.
+    pub fn set_end(mut self, end: usize) -> Self {
+        assert!(end >= self.start);
+        assert!(end <= self.as_ref().len());
+        self.end = end;
+        self
+    }
 }
 impl<B: AsMut<[u8]>> Window<B> {
     /// Makes new window for an mutable buffer.
@@ -290,6 +298,13 @@ impl<B> Window<B> {
         assert!(size <= self.end);
         assert!(self.start <= self.end - size);
         self.end -= size;
+        self
+    }
+
+    /// Sets start position of the window.
+    pub fn set_start(mut self, start: usize) -> Self {
+        assert!(start <= self.end);
+        self.start = start;
         self
     }
 }
