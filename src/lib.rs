@@ -64,7 +64,7 @@
 //!     let tcp_header = future.wait().expect("Failed to read tcp header");
 //! }
 //! ```
-#![warn(missing_docs)]
+//#![warn(missing_docs)]
 
 extern crate futures;
 extern crate byteorder;

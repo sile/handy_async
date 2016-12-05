@@ -3,6 +3,8 @@
 use std::io;
 use futures::{self, Future};
 
+pub use self::async_match::AsyncMatch;
+
 pub mod read;
 pub mod write;
 pub mod combinators {
@@ -20,6 +22,7 @@ pub mod combinators {
     pub use super::combinators_impl::Repeat;
 }
 mod combinators_impl;
+mod async_match;
 
 /// Pattern.
 pub trait Pattern: Sized {
