@@ -49,6 +49,28 @@ pub fn and_then<P, F>(pattern: P, and_then: F) -> AndThen<P, F> {
     AndThen(pattern, and_then)
 }
 
+/// A pattern for the `or` combinator,
+/// chaining a pattern on the end of another pattern which evaluation fails with an error.
+///
+/// This pattern is created by calling `Pattern::or` method.
+#[derive(Debug, Clone)]
+pub struct Or<P0, P1>(P0, P1);
+impl<P0, P1> Or<P0, P1> {
+    #[allow(missing_docs)]
+    pub fn unwrap(self) -> (P0, P1) {
+        (self.0, self.1)
+    }
+}
+impl<P0, P1> Pattern for Or<P0, P1>
+    where P0: Pattern,
+          P1: Pattern<Value = P0::Value>
+{
+    type Value = P1::Value;
+}
+pub fn or<P0, P1>(pattern0: P0, pattern1: P1) -> Or<P0, P1> {
+    Or(pattern0, pattern1)
+}
+
 /// A pattern for the `or_else` combinator,
 /// chaining a pattern on the end of another pattern which evaluation fails with an error.
 ///

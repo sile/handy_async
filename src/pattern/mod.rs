@@ -13,6 +13,7 @@ pub mod combinators {
     pub use super::combinators_impl::Then;
     pub use super::combinators_impl::AndThen;
     pub use super::combinators_impl::OrElse;
+    pub use super::combinators_impl::Or;
     pub use super::combinators_impl::Map;
     pub use super::combinators_impl::Chain;
     pub use super::combinators_impl::IterFold;
@@ -51,6 +52,13 @@ pub trait Pattern: Sized {
         where F: FnOnce(io::Error) -> P
     {
         combinators_impl::or_else(self, f)
+    }
+
+    /// Takes a pattern `other` which will be used if the evaluation of `self` is failed.
+    fn or<P>(self, other: P) -> combinators::Or<Self, P>
+        where P: Pattern<Value = Self::Value>
+    {
+        combinators_impl::or(self, other)
     }
 
     /// Takes a closure which maps a value to another value, and
