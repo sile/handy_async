@@ -12,7 +12,7 @@
 //!
 //! use std::io::{Read, Error};
 //! use futures::{Future, BoxFuture};
-//! use handy_io::io::ReadFrom;
+//! use handy_io::io::ReadPattern;
 //! use handy_io::pattern::{Pattern, Endian};
 //! use handy_io::pattern::read::{U16, U32};
 //!
@@ -56,7 +56,7 @@
 //!             header.option = option;
 //!             header
 //!         });
-//!     pattern.read_from(reader).map(|(reader, header)| header).boxed()
+//!     pattern.read_from(reader).lossy().map(|(reader, header)| header).boxed()
 //! }
 //!
 //! fn main(){
@@ -64,6 +64,7 @@
 //!     let tcp_header = future.wait().expect("Failed to read tcp header");
 //! }
 //! ```
+// TODO
 //#![warn(missing_docs)]
 
 extern crate futures;

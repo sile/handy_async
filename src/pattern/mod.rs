@@ -1,6 +1,5 @@
 //! Patterns.
 
-use std::io;
 use futures::{self, Future};
 
 pub use self::async_match::AsyncMatch;
@@ -23,7 +22,9 @@ pub mod combinators {
     pub use super::combinators_impl::Repeat;
 }
 mod combinators_impl;
+
 mod async_match;
+mod async_match_tuple;
 
 /// Pattern.
 pub trait Pattern: Sized {
@@ -32,8 +33,8 @@ pub trait Pattern: Sized {
 
     /// Takes a closure which maps a `Result<Self::Value>` to a pattern, and
     /// creates a pattern which calls that closure on the evaluation result of `self`.
-    fn then<F, P>(self, f: F) -> combinators::Then<Self, F>
-        where F: FnOnce(io::Result<Self::Value>) -> P
+    fn then<F, P, E>(self, f: F) -> combinators::Then<Self, F, E>
+        where F: FnOnce(Result<Self::Value, E>) -> P
     {
         combinators_impl::then(self, f)
     }
@@ -48,8 +49,8 @@ pub trait Pattern: Sized {
 
     /// Takes a closure which maps an error to a pattern, and
     /// creates a pattern which calls that closure if the evaluation of `self` failed.
-    fn or_else<F, P>(self, f: F) -> combinators::OrElse<Self, F>
-        where F: FnOnce(io::Error) -> P
+    fn or_else<F, P, E>(self, f: F) -> combinators::OrElse<Self, F, E>
+        where F: FnOnce(E) -> P
     {
         combinators_impl::or_else(self, f)
     }

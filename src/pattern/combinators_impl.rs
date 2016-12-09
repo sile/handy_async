@@ -1,4 +1,5 @@
 use std::io;
+use std::marker::PhantomData;
 use futures::{self, Poll, Async};
 
 use super::{Pattern, Endian};
@@ -8,22 +9,22 @@ use super::{Pattern, Endian};
 ///
 /// This pattern is created by calling `Pattern::then` method.
 #[derive(Debug)]
-pub struct Then<P, F>(P, F);
-impl<P, F> Then<P, F> {
+pub struct Then<P, F, E>(P, F, PhantomData<E>);
+impl<P, F, E> Then<P, F, E> {
     #[allow(missing_docs)]
     pub fn unwrap(self) -> (P, F) {
         (self.0, self.1)
     }
 }
-impl<P0, P1, F> Pattern for Then<P0, F>
+impl<P0, P1, F, E> Pattern for Then<P0, F, E>
     where P0: Pattern,
           P1: Pattern,
-          F: FnOnce(io::Result<P0::Value>) -> P1
+          F: FnOnce(Result<P0::Value, E>) -> P1
 {
     type Value = P1::Value;
 }
-pub fn then<P, F>(pattern: P, then: F) -> Then<P, F> {
-    Then(pattern, then)
+pub fn then<P, F, E>(pattern: P, then: F) -> Then<P, F, E> {
+    Then(pattern, then, PhantomData)
 }
 
 /// A pattern for the `and_then` combinator,
@@ -76,22 +77,22 @@ pub fn or<P0, P1>(pattern0: P0, pattern1: P1) -> Or<P0, P1> {
 ///
 /// This pattern is created by calling `Pattern::or_else` method.
 #[derive(Debug)]
-pub struct OrElse<P, F>(P, F);
-impl<P, F> OrElse<P, F> {
+pub struct OrElse<P, F, E>(P, F, PhantomData<E>);
+impl<P, F, E> OrElse<P, F, E> {
     #[allow(missing_docs)]
     pub fn unwrap(self) -> (P, F) {
         (self.0, self.1)
     }
 }
-impl<P0, P1, F> Pattern for OrElse<P0, F>
+impl<P0, P1, F, E> Pattern for OrElse<P0, F, E>
     where P0: Pattern,
           P1: Pattern<Value = P0::Value>,
-          F: FnOnce(io::Error) -> P1
+          F: FnOnce(E) -> P1
 {
     type Value = P1::Value;
 }
-pub fn or_else<P, F>(pattern: P, or_else: F) -> OrElse<P, F> {
-    OrElse(pattern, or_else)
+pub fn or_else<P, F, E>(pattern: P, or_else: F) -> OrElse<P, F, E> {
+    OrElse(pattern, or_else, PhantomData)
 }
 
 /// A pattern for the `map` combinator, mapping a value of a pattern to another value.
