@@ -2,7 +2,7 @@
 
 use futures::{self, Future};
 
-pub use self::async_match::AsyncMatch;
+pub use self::async_match::{AsyncMatch, Matcher};
 
 pub mod read;
 pub mod write;

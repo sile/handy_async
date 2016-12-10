@@ -2,7 +2,7 @@ use std::io::{Write, Result, Error};
 use futures::{Poll, Future};
 use byteorder::{ByteOrder, NativeEndian, BigEndian, LittleEndian};
 
-use pattern::{Pattern, AsyncMatch, Buf, Window};
+use pattern::{Pattern, AsyncMatch, Matcher, Buf, Window};
 use pattern::write::{self, U24, I24, U40, I40, U48, I48, U56, I56};
 use pattern::combinators::{self, PartialBuf, LE, BE};
 use io::{AsyncWrite, AsyncError};
@@ -20,6 +20,9 @@ impl<W: Write> Write for PatternWriter<W> {
     fn flush(&mut self) -> Result<()> {
         self.0.flush()
     }
+}
+impl<W> Matcher for PatternWriter<W> {
+    type Error = Error;
 }
 
 /// The `WritePattern` trait allows for writing
@@ -56,7 +59,7 @@ impl<W: Write> Write for PatternWriter<W> {
 /// impl Pattern for HelloWorld {
 ///    type Value = ();
 /// }
-/// impl<W: Write> AsyncMatch<PatternWriter<W>, Error> for HelloWorld {
+/// impl<W: Write> AsyncMatch<PatternWriter<W>> for HelloWorld {
 ///     type Future = WriteHelloWorld<W>;
 ///     fn async_match(self, matcher: PatternWriter<W>) -> Self::Future {
 ///         WriteHelloWorld(Vec::from(&b"Hello World!"[..]).async_match(matcher))
@@ -69,7 +72,7 @@ impl<W: Write> Write for PatternWriter<W> {
 /// assert_eq!(output, b"Hey! Hello World!");
 /// # }
 /// ```
-pub trait WritePattern<W: Write>: AsyncMatch<PatternWriter<W>, Error> {
+pub trait WritePattern<W: Write>: AsyncMatch<PatternWriter<W>> {
     /// Creates a future instance to write a value of the pattern to `writer`.
     ///
     /// # Examples
@@ -91,11 +94,11 @@ pub trait WritePattern<W: Write>: AsyncMatch<PatternWriter<W>, Error> {
         WriteTo(self.async_match(PatternWriter(writer)))
     }
 }
-impl<W: Write, T> WritePattern<W> for T where T: AsyncMatch<PatternWriter<W>, Error> {}
+impl<W: Write, T> WritePattern<W> for T where T: AsyncMatch<PatternWriter<W>> {}
 
-pub struct WriteTo<P, W>(P::Future) where P: AsyncMatch<PatternWriter<W>, Error>;
+pub struct WriteTo<P, W>(P::Future) where P: AsyncMatch<PatternWriter<W>>;
 impl<P, W> Future for WriteTo<P, W>
-    where P: AsyncMatch<PatternWriter<W>, Error>
+    where P: AsyncMatch<PatternWriter<W>>
 {
     type Item = (W, P::Value);
     type Error = AsyncError<W>;
@@ -112,7 +115,7 @@ impl<W: Write> Future for WriteFlush<W> {
         Ok(self.0.poll().map_err(|e| e.unwrap())?.map(|m| (m, ())))
     }
 }
-impl<W: Write> AsyncMatch<PatternWriter<W>, Error> for write::Flush {
+impl<W: Write> AsyncMatch<PatternWriter<W>> for write::Flush {
     type Future = WriteFlush<W>;
     fn async_match(self, matcher: PatternWriter<W>) -> Self::Future {
         WriteFlush(matcher.async_flush())
@@ -127,25 +130,25 @@ impl<W: Write, B: AsRef<[u8]>> Future for WriteBuf<W, B> {
         self.0.poll().map_err(|e| e.map(|(m, _)| m).unwrap())
     }
 }
-impl<W: Write, B: AsRef<[u8]>> AsyncMatch<PatternWriter<W>, Error> for Buf<B> {
+impl<W: Write, B: AsRef<[u8]>> AsyncMatch<PatternWriter<W>> for Buf<B> {
     type Future = WriteBuf<W, B>;
     fn async_match(self, matcher: PatternWriter<W>) -> Self::Future {
         WriteBuf(matcher.async_write_all(self.0))
     }
 }
-impl<W: Write> AsyncMatch<PatternWriter<W>, Error> for Vec<u8> {
+impl<W: Write> AsyncMatch<PatternWriter<W>> for Vec<u8> {
     type Future = WriteBuf<W, Self>;
     fn async_match(self, matcher: PatternWriter<W>) -> Self::Future {
         WriteBuf(matcher.async_write_all(self))
     }
 }
-impl<W: Write> AsyncMatch<PatternWriter<W>, Error> for String {
+impl<W: Write> AsyncMatch<PatternWriter<W>> for String {
     type Future = WriteBuf<W, Self>;
     fn async_match(self, matcher: PatternWriter<W>) -> Self::Future {
         WriteBuf(matcher.async_write_all(self))
     }
 }
-impl<W: Write, B: AsRef<[u8]>> AsyncMatch<PatternWriter<W>, Error> for Window<B> {
+impl<W: Write, B: AsRef<[u8]>> AsyncMatch<PatternWriter<W>> for Window<B> {
     type Future = WriteBuf<W, Self>;
     fn async_match(self, matcher: PatternWriter<W>) -> Self::Future {
         WriteBuf(matcher.async_write_all(self))
@@ -163,7 +166,7 @@ impl<W: Write, B: AsRef<[u8]>> Future for WritePartialBuf<W, B> {
             .map_err(|e| e.map(|(w, _)| w).unwrap())
     }
 }
-impl<W: Write, B: AsRef<[u8]>> AsyncMatch<PatternWriter<W>, Error> for PartialBuf<B> {
+impl<W: Write, B: AsRef<[u8]>> AsyncMatch<PatternWriter<W>> for PartialBuf<B> {
     type Future = WritePartialBuf<W, B>;
     fn async_match(self, matcher: PatternWriter<W>) -> Self::Future {
         WritePartialBuf(matcher.async_write(self.0))
@@ -171,10 +174,10 @@ impl<W: Write, B: AsRef<[u8]>> AsyncMatch<PatternWriter<W>, Error> for PartialBu
 }
 
 pub type WriteFixnum<W, P, T> where P: Pattern =
-    <combinators::Map<P, fn (P::Value) -> T> as AsyncMatch<PatternWriter<W>, Error>>::Future;
+    <combinators::Map<P, fn (P::Value) -> T> as AsyncMatch<PatternWriter<W>>>::Future;
 macro_rules! impl_write_fixnum_pattern {
     ($pat:ty, $size:expr, $conv:expr) => {
-        impl<W: Write> AsyncMatch<PatternWriter<W>, Error> for $pat {
+        impl<W: Write> AsyncMatch<PatternWriter<W>> for $pat {
             type Future = WriteFixnum<W, Buf<[u8; $size]>, ()>;
             fn async_match(self, matcher: PatternWriter<W>) -> Self::Future {
                 fn null(_: [u8; $size]) -> () { ()}
