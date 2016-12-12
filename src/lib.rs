@@ -56,7 +56,7 @@
 //!             header.option = option;
 //!             header
 //!         });
-//!     pattern.read_from(reader).lossy().map(|(reader, header)| header).boxed()
+//!     pattern.read_from(reader).map(|(reader, header)| header).map_err(|e| e.into_error()).boxed()
 //! }
 //!
 //! fn main(){
@@ -72,3 +72,5 @@ extern crate byteorder;
 
 pub mod io;
 pub mod pattern;
+pub mod matcher;
+pub mod error;

@@ -2,7 +2,7 @@ use std::io::{Write, Error, ErrorKind};
 use futures::{Poll, Async, Future};
 
 use pattern::Window;
-use super::AsyncError;
+use super::AsyncIoError;
 
 /// An asynchronous version of the standard `Write` trait.
 ///
@@ -97,7 +97,7 @@ impl<W: Write> AsyncWrite for W {}
 pub struct WriteBytes<W, B>(Option<(W, B)>);
 impl<W: Write, B: AsRef<[u8]>> Future for WriteBytes<W, B> {
     type Item = (W, B, usize);
-    type Error = AsyncError<(W, B)>;
+    type Error = AsyncIoError<(W, B)>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let (mut w, b) = self.0.take().expect("Cannot poll WriteBytes twice");
         match w.write(b.as_ref()) {
@@ -107,7 +107,7 @@ impl<W: Write, B: AsRef<[u8]>> Future for WriteBytes<W, B> {
                     self.0 = Some((w, b));
                     Ok(Async::NotReady)
                 } else {
-                    Err(AsyncError::new((w, b), e))
+                    Err(AsyncIoError::new((w, b), e))
                 }
             }
         }
@@ -121,18 +121,18 @@ impl<W: Write, B: AsRef<[u8]>> Future for WriteBytes<W, B> {
 pub struct WriteAll<W, B>(WriteBytes<W, Window<B>>);
 impl<W: Write, B: AsRef<[u8]>> Future for WriteAll<W, B> {
     type Item = (W, B);
-    type Error = AsyncError<(W, B)>;
+    type Error = AsyncIoError<(W, B)>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         if let Async::Ready((w, b, size)) = self.0
             .poll()
-            .map_err(|e| e.map(|(w, b)| (w, b.into_inner())))? {
+            .map_err(|e| e.map_state(|(w, b)| (w, b.into_inner())))? {
             let b = b.skip(size);
             if b.as_ref().is_empty() {
                 Ok(Async::Ready((w, b.into_inner())))
             } else if size == 0 {
                 let e = Error::new(ErrorKind::UnexpectedEof,
                                    format!("Unexpected EOF (remaining {} bytes", b.as_ref().len()));
-                Err(AsyncError::new((w, b.into_inner()), e))
+                Err(AsyncIoError::new((w, b.into_inner()), e))
             } else {
                 self.0 = w.async_write(b);
                 self.poll()
@@ -150,7 +150,7 @@ impl<W: Write, B: AsRef<[u8]>> Future for WriteAll<W, B> {
 pub struct Flush<W>(Option<W>);
 impl<W: Write> Future for Flush<W> {
     type Item = W;
-    type Error = AsyncError<W>;
+    type Error = AsyncIoError<W>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let mut w = self.0.take().expect("Cannot poll Flush twice");
         match w.flush() {
@@ -160,7 +160,7 @@ impl<W: Write> Future for Flush<W> {
                     self.0 = Some(w);
                     Ok(Async::NotReady)
                 } else {
-                    Err(AsyncError::new(w, e))
+                    Err(AsyncIoError::new(w, e))
                 }
             }
         }

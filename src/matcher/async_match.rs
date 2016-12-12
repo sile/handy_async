@@ -1,37 +1,30 @@
-use futures::{self, Poll, Async, Future, BoxFuture};
+use futures::{self, Poll, Async, Future};
 
 use pattern::{Pattern, Branch, Iter};
 use pattern::combinators::{Map, AndThen, Then, OrElse, Or, Chain, IterFold};
+use error::AsyncError;
+use super::Matcher;
 
-pub trait Matcher {
-    type Error;
-}
+/// The `AsyncMatch` trait allows for asyncronous matching
+/// between a pattern `Self` and a matcher `M`.
+///
+/// Normally, users will not be aware of this trait and will use
+/// more specific interfaces like `TODO:ReadFrom` and `TODO:WriteTo`.
+///
+/// For details on how to define your own matcher,
+/// see the documentation of [Matcher](./trait.Matcher.html) trait.
+pub trait AsyncMatch<M: Matcher>: Pattern {
+    /// The future type which will produce a value `Self::Value` by
+    /// matching this pattern and a matcher `M`.
+    type Future: Future<Item = (M, Self::Value), Error = AsyncError<M, M::Error>>;
 
-pub trait AsyncMatch<M>: Pattern
-    where M: Matcher
-{
-    type Future: Future<Item = (M, Self::Value), Error = (M, M::Error)>;
+    /// Creates a future which will produce a `Self::Value` by
+    /// matching this pattern and the `matcher`.
     fn async_match(self, matcher: M) -> Self::Future;
-    fn boxed(self) -> BoxPattern<M, Self::Value>
-        where Self: 'static,
-              Self::Future: Send + 'static
-    {
-        let mut f = Some(move |matcher: M| self.async_match(matcher).boxed());
-        BoxPattern(Box::new(move |matcher| (f.take().unwrap())(matcher)))
-    }
 }
 
-pub struct BoxPattern<M: Matcher, T>(Box<FnMut(M) -> BoxFuture<(M, T), (M, M::Error)>>);
-impl<M: Matcher, T> Pattern for BoxPattern<M, T> {
-    type Value = T;
-}
-impl<M: Matcher, T> AsyncMatch<M> for BoxPattern<M, T> {
-    type Future = BoxFuture<(M, T), (M, M::Error)>;
-    fn async_match(mut self, matcher: M) -> Self::Future {
-        (self.0)(matcher)
-    }
-}
-
+/// Future to do pattern matching of
+/// [Map](../../pattern/combinators/struct.Map.html) pattern.
 pub struct MatchMap<P, F>(Option<(P, F)>);
 impl<M, P, F, T, U> Future for MatchMap<P, F>
     where P: Future<Item = (M, T)>,
@@ -60,6 +53,8 @@ impl<M: Matcher, P, F, T> AsyncMatch<M> for Map<P, F>
     }
 }
 
+/// Future to do pattern matching of
+/// [AndThen](../../pattern/combinators/struct.AndThen.html) pattern.
 pub struct MatchAndThen<M, P0, P1, F>(Phase<(P0::Future, F), P1::Future>)
     where M: Matcher,
           P0: AsyncMatch<M>,
@@ -71,7 +66,7 @@ impl<M: Matcher, P0, P1, F> Future for MatchAndThen<M, P0, P1, F>
           F: FnOnce(P0::Value) -> P1
 {
     type Item = (M, P1::Value);
-    type Error = (M, M::Error);
+    type Error = AsyncError<M, M::Error>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.0.take() {
             Phase::A((mut p0, f)) => {
@@ -108,6 +103,8 @@ impl<M: Matcher, P0, P1, F> AsyncMatch<M> for AndThen<P0, F>
     }
 }
 
+/// Future to do pattern matching of
+/// [Then](../../pattern/combinators/struct.Then.html) pattern.
 pub struct MatchThen<M: Matcher, P0, P1, F>(Phase<(P0::Future, F), P1::Future>)
     where P0: AsyncMatch<M>,
           P1: AsyncMatch<M>,
@@ -118,12 +115,13 @@ impl<M: Matcher, P0, P1, F> Future for MatchThen<M, P0, P1, F>
           F: FnOnce(Result<P0::Value, M::Error>) -> P1
 {
     type Item = (M, P1::Value);
-    type Error = (M, M::Error);
+    type Error = AsyncError<M, M::Error>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.0.take() {
             Phase::A((mut p0, f)) => {
                 match p0.poll() {
-                    Err((m, e)) => {
+                    Err(e) => {
+                        let (m, e) = e.unwrap();
                         let p1 = f(Err(e)).async_match(m);
                         self.0 = Phase::B(p1);
                         self.poll()
@@ -163,6 +161,8 @@ impl<M: Matcher, P0, P1, F> AsyncMatch<M> for Then<P0, F, M::Error>
     }
 }
 
+/// Future to do pattern matching of
+/// [OrElse](../../pattern/combinators/struct.OrElse.html) pattern.
 pub struct MatchOrElse<M: Matcher, P0, P1, F>(Phase<(P0::Future, F), P1::Future>)
     where P0: AsyncMatch<M>,
           P1: AsyncMatch<M>,
@@ -173,12 +173,13 @@ impl<M: Matcher, P0, P1, F> Future for MatchOrElse<M, P0, P1, F>
           F: FnOnce(M::Error) -> P1
 {
     type Item = (M, P1::Value);
-    type Error = (M, M::Error);
+    type Error = AsyncError<M, M::Error>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.0.take() {
             Phase::A((mut p0, f)) => {
                 match p0.poll() {
-                    Err((m, e)) => {
+                    Err(e) => {
+                        let (m, e) = e.unwrap();
                         let p1 = f(e).async_match(m);
                         self.0 = Phase::B(p1);
                         self.poll()
@@ -214,6 +215,8 @@ impl<M: Matcher, P0, P1, F> AsyncMatch<M> for OrElse<P0, F, M::Error>
     }
 }
 
+/// Future to do pattern matching of
+/// [Or](../../pattern/combinators/struct.Or.html) pattern.
 pub struct MatchOr<M: Matcher, P0, P1>(Phase<(P0::Future, P1), P1::Future>)
     where P0: AsyncMatch<M>,
           P1: AsyncMatch<M>;
@@ -222,12 +225,13 @@ impl<M: Matcher, P0, P1> Future for MatchOr<M, P0, P1>
           P1: AsyncMatch<M, Value = P0::Value>
 {
     type Item = (M, P1::Value);
-    type Error = (M, M::Error);
+    type Error = AsyncError<M, M::Error>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.0.take() {
             Phase::A((mut p0, p1)) => {
                 match p0.poll() {
-                    Err((m, _)) => {
+                    Err(e) => {
+                        let (m, _) = e.unwrap();
                         let p1 = p1.async_match(m);
                         self.0 = Phase::B(p1);
                         self.poll()
@@ -262,6 +266,8 @@ impl<M: Matcher, P0, P1> AsyncMatch<M> for Or<P0, P1>
     }
 }
 
+/// Future to do pattern matching of
+/// [Chain](../../pattern/combinators/struct.Chain.html) pattern.
 pub struct MatchChain<M: Matcher, P0, P1>(Phase<(P0::Future, P1), (P1::Future, P0::Value)>)
     where P0: AsyncMatch<M>,
           P1: AsyncMatch<M>;
@@ -270,12 +276,12 @@ impl<M: Matcher, P0, P1> Future for MatchChain<M, P0, P1>
           P1: AsyncMatch<M>
 {
     type Item = (M, (P0::Value, P1::Value));
-    type Error = (M, M::Error);
+    type Error = AsyncError<M, M::Error>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.0.take() {
             Phase::A((mut p0, p1)) => {
                 match p0.poll() {
-                    Err((m, e)) => Err((m, e)),
+                    Err(e) => Err(e),
                     Ok(Async::Ready((m, v0))) => {
                         self.0 = Phase::B((p1.async_match(m), v0));
                         self.poll()
@@ -309,12 +315,14 @@ impl<M: Matcher, P0, P1> AsyncMatch<M> for Chain<P0, P1>
     }
 }
 
+/// Future to do pattern matching of
+/// [Option](../../pattern/type.Option.html) pattern.
 pub struct MatchOption<M: Matcher, P>(Option<Result<P::Future, M>>) where P: AsyncMatch<M>;
 impl<M: Matcher, P> Future for MatchOption<M, P>
     where P: AsyncMatch<M>
 {
     type Item = (M, Option<P::Value>);
-    type Error = (M, M::Error);
+    type Error = AsyncError<M, M::Error>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let inner = self.0.take().expect("Cannot poll MatchOption twice");
         match inner {
@@ -344,15 +352,17 @@ impl<M: Matcher, P> AsyncMatch<M> for Option<P>
 }
 
 impl<M: Matcher, T> AsyncMatch<M> for Result<T, M::Error> {
-    type Future = futures::Done<(M, T), (M, M::Error)>;
+    type Future = futures::Done<(M, T), AsyncError<M, M::Error>>;
     fn async_match(self, matcher: M) -> Self::Future {
         match self {
             Ok(v) => futures::done(Ok((matcher, v))),
-            Err(e) => futures::done(Err((matcher, e))),
+            Err(e) => futures::done(Err(AsyncError::new(matcher, e))),
         }
     }
 }
 
+/// Future to do pattern matching of
+/// [Branch](../../pattern/struct.Branch.html) pattern.
 pub type MatchBranch<M, A, B, C, D, E, F, G, H>
     where A: AsyncMatch<M>,
           B: AsyncMatch<M, Value = A::Value>,
@@ -395,6 +405,8 @@ impl<M, A, B, C, D, E, F, G, H> AsyncMatch<M> for Branch<A, B, C, D, E, F, G, H>
     }
 }
 
+/// Future to do pattern matching of
+/// [IterFold](../../pattern/combinators/struct.IterFold.html) pattern.
 pub struct MatchIterFold<M:Matcher, I, F, T>
     (Phase<(<I::Item as AsyncMatch<M>>::Future, I, T, F), (M, T)>)
     where I: Iterator,
@@ -405,7 +417,7 @@ impl<M: Matcher, I, F, T> Future for MatchIterFold<M, I, F, T>
           F: Fn(T, <I::Item as Pattern>::Value) -> T
 {
     type Item = (M, T);
-    type Error = (M, M::Error);
+    type Error = AsyncError<M, M::Error>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.0.take() {
             Phase::A((mut f, mut iter, acc, fold)) => {
@@ -443,6 +455,8 @@ impl<M: Matcher, I, F, T> AsyncMatch<M> for IterFold<I, F, T>
     }
 }
 
+/// Future to do pattern matching of
+/// [Iter](../../pattern/struct.Iter.html) pattern.
 pub struct MatchIter<M:Matcher, I>(Phase<(<I::Item as AsyncMatch<M>>::Future, I), M>)
     where I: Iterator,
           I::Item: AsyncMatch<M>;
@@ -451,7 +465,7 @@ impl<M: Matcher, I> Future for MatchIter<M, I>
           I::Item: AsyncMatch<M>
 {
     type Item = (M, ());
-    type Error = (M, M::Error);
+    type Error = AsyncError<M, M::Error>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.0.take() {
             Phase::A((mut f, mut iter)) => {

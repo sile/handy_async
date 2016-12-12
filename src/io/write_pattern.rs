@@ -2,10 +2,11 @@ use std::io::{Write, Result, Error};
 use futures::{Poll, Future};
 use byteorder::{ByteOrder, NativeEndian, BigEndian, LittleEndian};
 
-use pattern::{Pattern, AsyncMatch, Matcher, Buf, Window};
+use pattern::{Pattern, Buf, Window};
 use pattern::write::{self, U24, I24, U40, I40, U48, I48, U56, I56};
 use pattern::combinators::{self, PartialBuf, LE, BE};
-use io::{AsyncWrite, AsyncError};
+use matcher::{AsyncMatch, Matcher};
+use io::{AsyncWrite, AsyncIoError};
 
 pub struct PatternWriter<W>(W);
 impl<W> PatternWriter<W> {
@@ -42,14 +43,15 @@ impl<W> Matcher for PatternWriter<W> {
 /// # extern crate handy_io;
 /// use std::io::{Write, Error};
 /// use futures::{Poll, Future};
-/// use handy_io::io::{WritePattern, PatternWriter};
+/// use handy_io::io::{WritePattern, PatternWriter, AsyncIoError};
 /// use handy_io::io::futures::WriteBuf;
-/// use handy_io::pattern::{Pattern, AsyncMatch};
+/// use handy_io::pattern::Pattern;
+/// use handy_io::matcher::AsyncMatch;
 ///
 /// struct WriteHelloWorld<W>(WriteBuf<W, Vec<u8>>);
 /// impl<W: Write> Future for WriteHelloWorld<W> {
 ///     type Item = (PatternWriter<W>, ());
-///     type Error = (PatternWriter<W>, Error);
+///     type Error = AsyncIoError<PatternWriter<W>>;
 ///     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
 ///         Ok(self.0.poll()?.map(|(w, _)| (w, ())))
 ///     }
@@ -101,18 +103,18 @@ impl<P, W> Future for WriteTo<P, W>
     where P: AsyncMatch<PatternWriter<W>>
 {
     type Item = (W, P::Value);
-    type Error = AsyncError<W>;
+    type Error = AsyncIoError<W>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        Ok(self.0.poll().map_err(|(m, e)| AsyncError::new(m.0, e))?.map(|(m, v)| (m.0, v)))
+        Ok(self.0.poll().map_err(|e| e.map_state(|w| w.0))?.map(|(m, v)| (m.0, v)))
     }
 }
 
 pub struct WriteFlush<W>(super::futures::Flush<PatternWriter<W>>);
 impl<W: Write> Future for WriteFlush<W> {
     type Item = (PatternWriter<W>, ());
-    type Error = (PatternWriter<W>, Error);
+    type Error = AsyncIoError<PatternWriter<W>>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        Ok(self.0.poll().map_err(|e| e.unwrap())?.map(|m| (m, ())))
+        Ok(self.0.poll()?.map(|m| (m, ())))
     }
 }
 impl<W: Write> AsyncMatch<PatternWriter<W>> for write::Flush {
@@ -125,9 +127,9 @@ impl<W: Write> AsyncMatch<PatternWriter<W>> for write::Flush {
 pub struct WriteBuf<W, B>(super::futures::WriteAll<PatternWriter<W>, B>);
 impl<W: Write, B: AsRef<[u8]>> Future for WriteBuf<W, B> {
     type Item = (PatternWriter<W>, B);
-    type Error = (PatternWriter<W>, Error);
+    type Error = AsyncIoError<PatternWriter<W>>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.0.poll().map_err(|e| e.map(|(m, _)| m).unwrap())
+        self.0.poll().map_err(|e| e.map_state(|(w, _)| w))
     }
 }
 impl<W: Write, B: AsRef<[u8]>> AsyncMatch<PatternWriter<W>> for Buf<B> {
@@ -158,12 +160,12 @@ impl<W: Write, B: AsRef<[u8]>> AsyncMatch<PatternWriter<W>> for Window<B> {
 pub struct WritePartialBuf<W, B>(super::futures::WriteBytes<PatternWriter<W>, B>);
 impl<W: Write, B: AsRef<[u8]>> Future for WritePartialBuf<W, B> {
     type Item = (PatternWriter<W>, (B, usize));
-    type Error = (PatternWriter<W>, Error);
+    type Error = AsyncIoError<PatternWriter<W>>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         self.0
             .poll()
             .map(|a| a.map(|(w, b, s)| (w, (b, s))))
-            .map_err(|e| e.map(|(w, _)| w).unwrap())
+            .map_err(|e| e.map_state(|(w, _)| w))
     }
 }
 impl<W: Write, B: AsRef<[u8]>> AsyncMatch<PatternWriter<W>> for PartialBuf<B> {

@@ -5,9 +5,11 @@ use byteorder::{ByteOrder, NativeEndian, BigEndian, LittleEndian};
 
 use io::AsyncRead;
 use io::futures::{ReadBytes, ReadExact, ReadNonEmpty};
-use pattern::{Pattern, AsyncMatch, Matcher, Buf, Window};
+use pattern::{Pattern, Buf, Window};
 use pattern::read;
 use pattern::combinators::{self, BE, LE, PartialBuf};
+use matcher::{AsyncMatch, Matcher};
+use super::AsyncIoError;
 
 pub struct PatternReader<R>(R);
 impl<R: Read> Read for PatternReader<R> {
@@ -27,43 +29,22 @@ pub trait ReadPattern<R: Read>: AsyncMatch<PatternReader<R>> {
 impl<R: Read, T> ReadPattern<R> for T where T: AsyncMatch<PatternReader<R>> {}
 
 pub struct ReadFrom<P, R>(P::Future) where P: AsyncMatch<PatternReader<R>>;
-impl<P, R> ReadFrom<P, R>
-    where P: AsyncMatch<PatternReader<R>>
-{
-    pub fn lossy(self) -> LossyReadFrom<P, R> {
-        LossyReadFrom(self)
-    }
-    pub fn await(self) -> Result<P::Value> {
-        self.wait().map(|(_, v)| v).map_err(|(_, e)| e)
-    }
-}
 impl<P, R> Future for ReadFrom<P, R>
     where P: AsyncMatch<PatternReader<R>>
 {
     type Item = (R, P::Value);
-    type Error = (R, Error);
+    type Error = AsyncIoError<R>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        Ok(self.0.poll().map_err(|(m, v)| (m.0, v))?.map(|(m, v)| (m.0, v)))
-    }
-}
-
-pub struct LossyReadFrom<P, R>(ReadFrom<P, R>) where P: AsyncMatch<PatternReader<R>>;
-impl<P, R> Future for LossyReadFrom<P, R>
-    where P: AsyncMatch<PatternReader<R>>
-{
-    type Item = (R, P::Value);
-    type Error = Error;
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        Ok(self.0.poll().map_err(|(_, e)| e)?)
+        Ok(self.0.poll().map_err(|e| e.map_state(|m| m.0))?.map(|(m, v)| (m.0, v)))
     }
 }
 
 pub struct ReadBuf<R, B>(ReadExact<PatternReader<R>, Buf<B>>);
 impl<R: Read, B: AsMut<[u8]>> Future for ReadBuf<R, B> {
     type Item = (PatternReader<R>, B);
-    type Error = (PatternReader<R>, Error);
+    type Error = AsyncIoError<PatternReader<R>>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        Ok(self.0.poll().map_err(|(r, _, e)| (r, e))?.map(|(r, v)| (r, v.0)))
+        Ok(self.0.poll().map_err(|e| e.map_state(|(r, _)| r))?.map(|(r, v)| (r, v.0)))
     }
 }
 impl<R: Read, B: AsMut<[u8]>> AsyncMatch<PatternReader<R>> for Buf<B> {
@@ -88,9 +69,9 @@ impl<R: Read, B: AsMut<[u8]>> AsyncMatch<PatternReader<R>> for Window<B> {
 pub struct ReadPartialBuf<R, B>(ReadNonEmpty<PatternReader<R>, B>);
 impl<R: Read, B: AsMut<[u8]>> Future for ReadPartialBuf<R, B> {
     type Item = (PatternReader<R>, (B, usize));
-    type Error = (PatternReader<R>, Error);
+    type Error = AsyncIoError<PatternReader<R>>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.0.poll().map(|x| x.map(|(r, b, s)| (r, (b, s)))).map_err(|(r, _, e)| (r, e))
+        self.0.poll().map(|x| x.map(|(r, b, s)| (r, (b, s)))).map_err(|e| e.map_state(|(r, _)| r))
     }
 }
 impl<R: Read, B: AsMut<[u8]>> AsyncMatch<PatternReader<R>> for PartialBuf<B> {
@@ -103,12 +84,14 @@ impl<R: Read, B: AsMut<[u8]>> AsyncMatch<PatternReader<R>> for PartialBuf<B> {
 pub struct ReadString<R>(ReadExact<PatternReader<R>, Vec<u8>>);
 impl<R: Read> Future for ReadString<R> {
     type Item = (PatternReader<R>, String);
-    type Error = (PatternReader<R>, Error);
+    type Error = AsyncIoError<PatternReader<R>>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        if let Async::Ready((r, b)) = self.0.poll().map_err(|(r, _, e)| (r, e))? {
+        if let Async::Ready((r, b)) = self.0.poll().map_err(|e| e.map_state(|(r, _)| r))? {
             match String::from_utf8(b) {
                 Ok(s) => Ok(Async::Ready((r, s))),
-                Err(e) => Err((r, Error::new(ErrorKind::InvalidData, Box::new(e)))),
+                Err(e) => {
+                    Err(AsyncIoError::new(r, Error::new(ErrorKind::InvalidData, Box::new(e))))
+                }
             }
         } else {
             Ok(Async::NotReady)
@@ -200,14 +183,15 @@ impl_read_fixnum_pattern!(LE<read::F64>, f64, 8, |b: &[u8]| LittleEndian::read_f
 pub struct ReadEos<R>(ReadExact<PatternReader<R>, [u8; 1]>);
 impl<R: Read> Future for ReadEos<R> {
     type Item = (PatternReader<R>, std::result::Result<(), u8>);
-    type Error = (PatternReader<R>, Error);
+    type Error = AsyncIoError<PatternReader<R>>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.0.poll() {
-            Err((r, _, e)) => {
-                if e.kind() == ErrorKind::UnexpectedEof {
+            Err(e) => {
+                if e.error_ref().kind() == ErrorKind::UnexpectedEof {
+                    let ((r, _), _) = e.unwrap();
                     Ok(Async::Ready((r, Ok(()))))
                 } else {
-                    Err((r, e))
+                    Err(e.map_state(|(r, _)| r))
                 }
             }
             Ok(Async::Ready((r, b))) => Ok(Async::Ready((r, Err(b[0])))),
@@ -234,23 +218,24 @@ impl<R: Read, F, T> Future for ReadUntil<R, F, T>
     where F: Fn(&[u8], bool) -> Result<Option<T>>
 {
     type Item = (PatternReader<R>, (Vec<u8>, T));
-    type Error = (PatternReader<R>, Error);
+    type Error = AsyncIoError<PatternReader<R>>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         if let Async::Ready((r, mut b, read_size)) = self.read
             .poll()
-            .map_err(|(r, _, e)| (r, e))? {
+            .map_err(|e| e.map_state(|(r, _)| r))? {
             let is_eos = read_size == 0;
             b = b.skip(read_size);
             let total_read_size = b.start();
             match (self.pred)(&b.inner_ref()[0..total_read_size], is_eos) {
-                Err(e) => Err((r, e)),
+                Err(e) => Err(AsyncIoError::new(r, e)),
                 Ok(Some(v)) => {
                     let mut b = b.into_inner();
                     b.truncate(total_read_size);
                     Ok(Async::Ready((r, (b, v))))
                 }
                 Ok(None) if is_eos => {
-                    Err((r, Error::new(ErrorKind::UnexpectedEof, "Unexpected Eof")))
+                    let e = Error::new(ErrorKind::UnexpectedEof, "Unexpected Eof");
+                    Err(AsyncIoError::new(r, e))
                 }
                 Ok(None) => {
                     if b.as_ref().is_empty() {
@@ -260,7 +245,7 @@ impl<R: Read, F, T> Future for ReadUntil<R, F, T>
                         if new_len == inner.len() {
                             let message = format!("Buffer size limit ({} bytes) reached",
                                                   self.max_buffer_size);
-                            return Err((r, Error::new(ErrorKind::Other, message)));
+                            return Err(AsyncIoError::new(r, Error::new(ErrorKind::Other, message)));
                         }
                         inner.resize(total_read_size * 2, 0);
                         b = Window::new(inner).skip(total_read_size);

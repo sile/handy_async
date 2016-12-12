@@ -1,8 +1,5 @@
 //! Patterns.
-
 use futures::{self, Future};
-
-pub use self::async_match::{AsyncMatch, Matcher};
 
 pub mod read;
 pub mod write;
@@ -22,9 +19,6 @@ pub mod combinators {
     pub use super::combinators_impl::Repeat;
 }
 mod combinators_impl;
-
-mod async_match;
-mod async_match_tuple;
 
 /// Pattern.
 pub trait Pattern: Sized {
@@ -86,6 +80,29 @@ pub trait Pattern: Sized {
     {
         combinators_impl::repeat(self)
     }
+
+    fn boxed<M: Matcher>(self) -> BoxPattern<M, Self::Value>
+        where Self: AsyncMatch<M> + 'static,
+              Self::Future: Send + 'static
+    {
+        let mut f = Some(move |matcher: M| self.async_match(matcher).boxed());
+        BoxPattern(Box::new(move |matcher| (f.take().unwrap())(matcher)))
+    }
+}
+
+use futures::BoxFuture;
+use matcher::{AsyncMatch, Matcher};
+use error::AsyncError;
+pub struct BoxPattern<M: Matcher, T>(Box<FnMut(M) -> BoxFuture<(M, T), AsyncError<M, M::Error>>>);
+
+impl<M: Matcher, T> Pattern for BoxPattern<M, T> {
+    type Value = T;
+}
+impl<M: Matcher, T> AsyncMatch<M> for BoxPattern<M, T> {
+    type Future = BoxFuture<(M, T), AsyncError<M, M::Error>>;
+    fn async_match(mut self, matcher: M) -> Self::Future {
+        (self.0)(matcher)
+    }
 }
 
 /// A pattern which represents a sequence of a pattern `P`.
@@ -109,6 +126,9 @@ impl<I, P> Pattern for Iter<I>
 {
     type Value = ();
 }
+
+// TODO:
+pub type Option<T> = ::std::option::Option<T>;
 
 impl<P> Pattern for Option<P>
     where P: Pattern

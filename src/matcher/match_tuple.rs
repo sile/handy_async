@@ -1,9 +1,11 @@
 use futures::{self, Async, Poll, Future};
 
-use super::async_match::{AsyncMatch, Matcher, MatchChain};
+use error::AsyncError;
+use matcher::{AsyncMatch, Matcher};
+use matcher::futures::MatchChain;
 
 impl<M:Matcher> AsyncMatch<M> for () {
-    type Future = futures::Finished<(M, ()), (M, M::Error)>;
+    type Future = futures::Finished<(M, ()), AsyncError<M, M::Error>>;
     fn async_match(self, matcher: M) -> Self::Future {
         futures::finished((matcher, self))
     }
@@ -20,6 +22,8 @@ impl<M:Matcher, P0, P1> AsyncMatch<M> for (P0, P1)
     }
 }
 
+/// Future to do pattern matching of
+/// [Tuple3](../../pattern/combinators/type.Tuple3.html) pattern.
 pub struct MatchTuple3<M, A, B, C>(Phase<(A::Future, B, C),
                                          (B::Future, C, A::Value),
                                          (C::Future, A::Value, B::Value)>)
@@ -34,7 +38,7 @@ impl<M, A, B, C> Future for MatchTuple3<M, A, B, C>
           C: AsyncMatch<M>
 {
     type Item = (M, (A::Value, B::Value, C::Value));
-    type Error = (M, M::Error);
+    type Error = AsyncError<M, M::Error>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.0.take() {
             Phase::A((mut future, b, c)) => {
@@ -80,6 +84,8 @@ impl<M, A, B, C> AsyncMatch<M> for (A, B, C)
     }
 }
 
+/// Future to do pattern matching of
+/// [Tuple4](../../pattern/combinators/type.Tuple4.html) pattern.
 pub struct MatchTuple4<M, A, B, C, D>
     where M:Matcher,
           A: AsyncMatch<M>,
@@ -100,7 +106,7 @@ impl<M, A, B, C, D> Future for MatchTuple4<M, A, B, C, D>
           D: AsyncMatch<M>,
 {
     type Item = (M, (A::Value, B::Value, C::Value, D::Value));
-    type Error = (M, M::Error);
+    type Error = AsyncError<M, M::Error>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.p.take() {
             Phase::A((mut future, b, c, d)) => {
@@ -156,6 +162,8 @@ impl<M, A, B, C, D> AsyncMatch<M> for (A, B, C, D)
     }
 }
 
+/// Future to do pattern matching of
+/// [Tuple5](../../pattern/combinators/type.Tuple5.html) pattern.
 pub struct MatchTuple5<M, A, B, C, D, E>
     where M:Matcher,
           A: AsyncMatch<M>,
@@ -178,7 +186,7 @@ impl<M, A, B, C, D, E> Future for MatchTuple5<M, A, B, C, D, E>
           E: AsyncMatch<M>,
 {
     type Item = (M, (A::Value, B::Value, C::Value, D::Value, E::Value));
-    type Error = (M, M::Error);
+    type Error = AsyncError<M, M::Error>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.p.take() {
             Phase::A((mut future, b, c, d, e)) => {
@@ -243,6 +251,8 @@ impl<M, A, B, C, D, E> AsyncMatch<M> for (A, B, C, D, E)
     }
 }
 
+/// Future to do pattern matching of
+/// [Tuple6](../../pattern/combinators/type.Tuple6.html) pattern.
 pub struct MatchTuple6<M, A, B, C, D, E, F>
     where M:Matcher, A: AsyncMatch<M>,
           B: AsyncMatch<M>,
@@ -268,7 +278,7 @@ impl<M, A, B, C, D, E, F> Future for MatchTuple6<M, A, B, C, D, E, F>
 {
     type Item = (M,
      (A::Value, B::Value, C::Value, D::Value, E::Value, F::Value));
-    type Error = (M, M::Error);
+    type Error = AsyncError<M, M::Error>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.p.take() {
             Phase::A((mut future, b, c, d, e, f)) => {
@@ -343,6 +353,8 @@ impl<M, A, B, C, D, E, F> AsyncMatch<M> for (A, B, C, D, E, F)
     }
 }
 
+/// Future to do pattern matching of
+/// [Tuple7](../../pattern/combinators/type.Tuple7.html) pattern.
 pub struct MatchTuple7<M, A, B, C, D, E, F, G>
     where M:Matcher, A: AsyncMatch<M>,
           B: AsyncMatch<M>,
@@ -371,7 +383,7 @@ impl<M, A, B, C, D, E, F, G> Future for MatchTuple7<M, A, B, C, D, E, F, G>
 {
     type Item = (M,
      (A::Value, B::Value, C::Value, D::Value, E::Value, F::Value, G::Value));
-    type Error = (M, M::Error);
+    type Error = AsyncError<M, M::Error>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.p.take() {
             Phase::A((mut future, b, c, d, e, f, g)) => {
@@ -456,6 +468,8 @@ impl<M, A, B, C, D, E, F, G> AsyncMatch<M> for (A, B, C, D, E, F, G)
     }
 }
 
+/// Future to do pattern matching of
+/// [Tuple8](../../pattern/combinators/type.Tuple8.html) pattern.
 pub struct MatchTuple8<M, A, B, C, D, E, F, G, H>
     where M:Matcher, A: AsyncMatch<M>,
           B: AsyncMatch<M>,
@@ -487,7 +501,7 @@ impl<M, A, B, C, D, E, F, G, H> Future for MatchTuple8<M, A, B, C, D, E, F, G, H
 {
     type Item = (M,
                  (A::Value, B::Value, C::Value, D::Value, E::Value, F::Value, G::Value, H::Value));
-    type Error = (M, M::Error);
+    type Error = AsyncError<M, M::Error>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.p.take() {
             Phase::A((mut future, b, c, d, e, f, g, h)) => {
@@ -582,6 +596,8 @@ impl<M, A, B, C, D, E, F, G, H> AsyncMatch<M> for (A, B, C, D, E, F, G, H)
     }
 }
 
+/// Future to do pattern matching of
+/// [Tuple9](../../pattern/combinators/type.Tuple9.html) pattern.
 pub struct MatchTuple9<M, A, B, C, D, E, F, G, H, I>
     where M:Matcher, A: AsyncMatch<M>,
           B: AsyncMatch<M>,
@@ -624,7 +640,7 @@ impl<M, A, B, C, D, E, F, G, H, I> Future for MatchTuple9<M, A, B, C, D, E, F, G
 {
     type Item = (M,
      (A::Value, B::Value, C::Value, D::Value, E::Value, F::Value, G::Value, H::Value, I::Value));
-    type Error = (M, M::Error);
+    type Error = AsyncError<M, M::Error>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.p.take() {
             Phase::A((mut future, b, c, d, e, f, g, h, i)) => {
@@ -729,6 +745,8 @@ impl<M, A, B, C, D, E, F, G, H, I> AsyncMatch<M> for (A, B, C, D, E, F, G, H, I)
     }
 }
 
+/// Future to do pattern matching of
+/// [Tuple10](../../pattern/combinators/type.Tuple10.html) pattern.
 pub struct MatchTuple10<M, A, B, C, D, E, F, G, H, I, J>
     where M:Matcher, A: AsyncMatch<M>,
           B: AsyncMatch<M>,
@@ -803,7 +821,7 @@ impl<M, A, B, C, D, E, F, G, H, I, J> Future
       H::Value,
       I::Value,
       J::Value));
-    type Error = (M, M::Error);
+    type Error = AsyncError<M, M::Error>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.p.take() {
             Phase::A((mut future, b, c, d, e, f, g, h, i, j)) => {
