@@ -8,8 +8,13 @@ use pattern::combinators::{self, PartialBuf, LE, BE};
 use matcher::{AsyncMatch, Matcher};
 use io::{AsyncWrite, AsyncIoError};
 
+/// A matcher to write patterns into the inner writer `W`.
+///
+/// This is mainly used to define your own writing patterns.
+/// See the example of the [WriteInto](./trait.WriteInto.html) trait.
 pub struct PatternWriter<W>(W);
 impl<W> PatternWriter<W> {
+    /// Unwraps this `PatternWriter`, returing the underlying writer `W`.
     pub fn into_inner(self) -> W {
         self.0
     }
@@ -26,8 +31,8 @@ impl<W> Matcher for PatternWriter<W> {
     type Error = Error;
 }
 
-/// The `WritePattern` trait allows for writing
-/// a value of the pattern to a sink asynchronously.
+/// The `WriteInto` trait allows for writing
+/// a value of this pattern to a sink asynchronously.
 ///
 /// # Notice
 ///
@@ -36,45 +41,39 @@ impl<W> Matcher for PatternWriter<W> {
 ///
 /// # Examples
 ///
-/// Defines original pattern:
+/// Defines your own writing pattern:
 ///
 /// ```
 /// # extern crate futures;
 /// # extern crate handy_io;
-/// use std::io::{Write, Error};
-/// use futures::{Poll, Future};
-/// use handy_io::io::{WritePattern, PatternWriter, AsyncIoError};
-/// use handy_io::io::futures::WriteBuf;
+/// use std::io::Write;
+/// use futures::{Future, BoxFuture};
+/// use handy_io::io::{WriteInto, PatternWriter, AsyncIoError};
 /// use handy_io::pattern::Pattern;
 /// use handy_io::matcher::AsyncMatch;
 ///
-/// struct WriteHelloWorld<W>(WriteBuf<W, Vec<u8>>);
-/// impl<W: Write> Future for WriteHelloWorld<W> {
-///     type Item = (PatternWriter<W>, ());
-///     type Error = AsyncIoError<PatternWriter<W>>;
-///     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-///         Ok(self.0.poll()?.map(|(w, _)| (w, ())))
-///     }
-/// }
-///
+/// // Defines pattern.
 /// struct HelloWorld;
 /// impl Pattern for HelloWorld {
 ///    type Value = ();
 /// }
-/// impl<W: Write> AsyncMatch<PatternWriter<W>> for HelloWorld {
-///     type Future = WriteHelloWorld<W>;
+///
+/// // Implements pattern maching between `PatternWriter<W>` and `HelloWorld`.
+/// impl<W: Write + Send + 'static> AsyncMatch<PatternWriter<W>> for HelloWorld {
+///     type Future = BoxFuture<(PatternWriter<W>, ()), AsyncIoError<PatternWriter<W>>>;
 ///     fn async_match(self, matcher: PatternWriter<W>) -> Self::Future {
-///         WriteHelloWorld(Vec::from(&b"Hello World!"[..]).async_match(matcher))
+///         Vec::from(&b"Hello World!"[..]).map(|_| ()).async_match(matcher).boxed()
 ///     }
 /// }
 ///
 /// # fn main() {
+/// // Executes pattern matching.
 /// let pattern = ("Hey! ".to_string(), HelloWorld);
-/// let (output, _) = pattern.write_to(Vec::new()).wait().unwrap();
+/// let (output, _) = pattern.write_into(Vec::new()).wait().unwrap();
 /// assert_eq!(output, b"Hey! Hello World!");
 /// # }
 /// ```
-pub trait WritePattern<W: Write>: AsyncMatch<PatternWriter<W>> {
+pub trait WriteInto<W: Write>: AsyncMatch<PatternWriter<W>> {
     /// Creates a future instance to write a value of the pattern to `writer`.
     ///
     /// # Examples
@@ -83,23 +82,23 @@ pub trait WritePattern<W: Write>: AsyncMatch<PatternWriter<W>> {
     /// # extern crate futures;
     /// # extern crate handy_io;
     /// use futures::Future;
-    /// use handy_io::io::WritePattern;
+    /// use handy_io::io::WriteInto;
     /// use handy_io::pattern::Endian;
     ///
     /// # fn main() {
     /// let pattern = (1u8, 2u16.be());
-    /// let (output, _) = pattern.write_to(Vec::new()).wait().unwrap();
+    /// let (output, _) = pattern.write_into(Vec::new()).wait().unwrap();
     /// assert_eq!(output, [1, 0, 2]);
     /// # }
     /// ```
-    fn write_to(self, writer: W) -> WriteTo<Self, W> {
-        WriteTo(self.async_match(PatternWriter(writer)))
+    fn write_into(self, writer: W) -> WritePattern<Self, W> {
+        WritePattern(self.async_match(PatternWriter(writer)))
     }
 }
-impl<W: Write, T> WritePattern<W> for T where T: AsyncMatch<PatternWriter<W>> {}
+impl<W: Write, T> WriteInto<W> for T where T: AsyncMatch<PatternWriter<W>> {}
 
-pub struct WriteTo<P, W>(P::Future) where P: AsyncMatch<PatternWriter<W>>;
-impl<P, W> Future for WriteTo<P, W>
+pub struct WritePattern<P, W>(P::Future) where P: AsyncMatch<PatternWriter<W>>;
+impl<P, W> Future for WritePattern<P, W>
     where P: AsyncMatch<PatternWriter<W>>
 {
     type Item = (W, P::Value);

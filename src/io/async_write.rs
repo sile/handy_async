@@ -6,8 +6,8 @@ use super::AsyncIoError;
 
 /// An asynchronous version of the standard `Write` trait.
 ///
-/// Since this is a basic component,
-/// it may be more convenient to use `WritePattern` for ordinary cases.
+/// Since this is assumed as a basic building block,
+/// it may be more convenient to use [WriteInto](./trait.WriteInto.html) for ordinary cases.
 ///
 /// # Notice
 ///

@@ -6,7 +6,7 @@ use super::AsyncIoError;
 
 /// An asynchronous version of the standard `Read` trait.
 ///
-/// Since this is a basic component,
+/// Since this is assumed as a basic building block,
 /// it may be more convenient to use `ReadPattern` for ordinary cases.
 ///
 /// # Notice
