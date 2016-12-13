@@ -20,10 +20,10 @@ pub trait AsyncRead: Read + Sized {
     ///
     /// ```
     /// # extern crate futures;
-    /// # extern crate handy_io;
+    /// # extern crate handy_async;
     /// use std::io::empty;
     /// use futures::Future;
-    /// use handy_io::io::AsyncRead;
+    /// use handy_async::io::AsyncRead;
     ///
     /// # fn main() {
     /// let (_, buf, read_size) = b"hello".async_read([0; 8]).wait().ok().unwrap();
@@ -44,10 +44,10 @@ pub trait AsyncRead: Read + Sized {
     ///
     /// ```
     /// # extern crate futures;
-    /// # extern crate handy_io;
+    /// # extern crate handy_async;
     /// use std::io::{empty, ErrorKind};
     /// use futures::Future;
-    /// use handy_io::io::AsyncRead;
+    /// use handy_async::io::AsyncRead;
     ///
     /// # fn main() {
     /// let (_, buf, read_size) = b"hello".async_read_non_empty([0; 8]).wait().ok().unwrap();
@@ -68,10 +68,10 @@ pub trait AsyncRead: Read + Sized {
     ///
     /// ```
     /// # extern crate futures;
-    /// # extern crate handy_io;
+    /// # extern crate handy_async;
     /// use std::io::ErrorKind;
     /// use futures::Future;
-    /// use handy_io::io::AsyncRead;
+    /// use handy_async::io::AsyncRead;
     ///
     /// # fn main() {
     /// let (_, buf) = b"hello".async_read_exact([0; 3]).wait().ok().unwrap();

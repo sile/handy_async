@@ -9,11 +9,11 @@ use std::error;
 /// # Examples
 ///
 /// ```
-/// # extern crate handy_io;
+/// # extern crate handy_async;
 /// # extern crate futures;
 /// use std::io::{empty, ErrorKind};
-/// use handy_io::io::AsyncRead;
-/// use handy_io::error::AsyncError;
+/// use handy_async::io::AsyncRead;
+/// use handy_async::error::AsyncError;
 /// use futures::Future;
 ///
 /// # fn main() {
@@ -78,7 +78,7 @@ impl<T, E> AsyncError<T, E>
     /// # Examples
     /// ```
     /// use std::io::{Error, ErrorKind};
-    /// use handy_io::error::AsyncError;
+    /// use handy_async::error::AsyncError;
     ///
     /// let error = AsyncError::new("dummy_state", Error::new(ErrorKind::Other, ""));
     /// assert_eq!(error.state_ref(), &"dummy_state");

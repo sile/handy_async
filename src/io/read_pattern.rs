@@ -38,12 +38,12 @@ impl<R> Matcher for PatternReader<R> {
 ///
 /// ```
 /// # extern crate futures;
-/// # extern crate handy_io;
+/// # extern crate handy_async;
 /// use std::io::{Read, Error, ErrorKind};
 /// use futures::{Future, BoxFuture};
-/// use handy_io::io::{ReadFrom, PatternReader, AsyncIoError};
-/// use handy_io::pattern::Pattern;
-/// use handy_io::matcher::AsyncMatch;
+/// use handy_async::io::{ReadFrom, PatternReader, AsyncIoError};
+/// use handy_async::pattern::Pattern;
+/// use handy_async::matcher::AsyncMatch;
 ///
 /// // Defines pattern.
 /// struct HelloWorld;
@@ -87,10 +87,10 @@ pub trait ReadFrom<R: Read>: AsyncMatch<PatternReader<R>> {
     ///
     /// ```
     /// # extern crate futures;
-    /// # extern crate handy_io;
-    /// use handy_io::io::ReadFrom;
-    /// use handy_io::pattern::{Pattern, Endian};
-    /// use handy_io::pattern::read::{U8, U16};
+    /// # extern crate handy_async;
+    /// use handy_async::io::ReadFrom;
+    /// use handy_async::pattern::{Pattern, Endian};
+    /// use handy_async::pattern::read::{U8, U16};
     /// use futures::Future;
     ///
     /// # fn main() {
@@ -127,8 +127,8 @@ impl<P, R> Future for ReadPattern<P, R>
 /// such as the following.
 ///
 /// ```
-/// use handy_io::io::ReadFrom;
-/// use handy_io::pattern::{Buf, Window};
+/// use handy_async::io::ReadFrom;
+/// use handy_async::pattern::{Buf, Window};
 ///
 /// vec![0; 32].read_from(std::io::empty());
 /// Buf([0; 32]).read_from(std::io::empty());
@@ -170,9 +170,9 @@ impl<R: Read, B: AsMut<[u8]>> AsyncMatch<PatternReader<R>> for Window<B> {
 ///
 /// ```
 /// # extern crate futures;
-/// # extern crate handy_io;
-/// use handy_io::io::ReadFrom;
-/// use handy_io::pattern::AllowPartial;
+/// # extern crate handy_async;
+/// use handy_async::io::ReadFrom;
+/// use handy_async::pattern::AllowPartial;
 /// use futures::Future;
 ///
 /// # fn main() {
@@ -205,7 +205,7 @@ impl<R: Read, B: AsMut<[u8]>> AsyncMatch<PatternReader<R>> for PartialBuf<B> {
 /// If the read bytes are not a valid UTF-8 string, the future will return an error.
 ///
 /// ```
-/// use handy_io::io::ReadFrom;
+/// use handy_async::io::ReadFrom;
 ///
 /// let str_buf = String::from_utf8(vec![0; 32]).unwrap();
 /// str_buf.read_from(std::io::empty()); // This returns a `ReadString` instance
@@ -320,9 +320,9 @@ impl_read_fixnum_pattern!(LE<read::F64>, f64, 8, |b: &[u8]| LittleEndian::read_f
 ///
 /// ```
 /// # extern crate futures;
-/// # extern crate handy_io;
-/// use handy_io::io::ReadFrom;
-/// use handy_io::pattern::read::Eos;
+/// # extern crate handy_async;
+/// use handy_async::io::ReadFrom;
+/// use handy_async::pattern::read::Eos;
 /// use futures::Future;
 ///
 /// # fn main() {

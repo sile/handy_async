@@ -39,12 +39,12 @@ impl<W> Matcher for PatternWriter<W> {
 ///
 /// ```
 /// # extern crate futures;
-/// # extern crate handy_io;
+/// # extern crate handy_async;
 /// use std::io::Write;
 /// use futures::{Future, BoxFuture};
-/// use handy_io::io::{WriteInto, PatternWriter, AsyncIoError};
-/// use handy_io::pattern::Pattern;
-/// use handy_io::matcher::AsyncMatch;
+/// use handy_async::io::{WriteInto, PatternWriter, AsyncIoError};
+/// use handy_async::pattern::Pattern;
+/// use handy_async::matcher::AsyncMatch;
 ///
 /// // Defines pattern.
 /// struct HelloWorld;
@@ -74,10 +74,10 @@ pub trait WriteInto<W: Write>: AsyncMatch<PatternWriter<W>> {
     ///
     /// ```
     /// # extern crate futures;
-    /// # extern crate handy_io;
+    /// # extern crate handy_async;
     /// use futures::Future;
-    /// use handy_io::io::WriteInto;
-    /// use handy_io::pattern::Endian;
+    /// use handy_async::io::WriteInto;
+    /// use handy_async::pattern::Endian;
     ///
     /// # fn main() {
     /// let pattern = (1u8, 2u16.be());
@@ -131,8 +131,8 @@ impl<W: Write> AsyncMatch<PatternWriter<W>> for write::Flush {
 /// such as the following.
 ///
 /// ```
-/// use handy_io::io::WriteInto;
-/// use handy_io::pattern::{Buf, Window};
+/// use handy_async::io::WriteInto;
+/// use handy_async::pattern::{Buf, Window};
 ///
 /// vec![0; 32].write_into(std::io::sink());
 /// Buf([0; 32]).write_into(std::io::sink());
@@ -180,9 +180,9 @@ impl<W: Write, B: AsRef<[u8]>> AsyncMatch<PatternWriter<W>> for Window<B> {
 ///
 /// ```
 /// # extern crate futures;
-/// # extern crate handy_io;
-/// use handy_io::io::WriteInto;
-/// use handy_io::pattern::AllowPartial;
+/// # extern crate handy_async;
+/// use handy_async::io::WriteInto;
+/// use handy_async::pattern::AllowPartial;
 /// use futures::Future;
 ///
 /// # fn main() {

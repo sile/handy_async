@@ -1,20 +1,21 @@
-//! This library provides miscellaneous functionalities to help I / O operations in Rust.
+//! This library provides miscellaneous functionalities to help asynchronous operations in Rust.
 //!
-//! `handy_io` uses [futures](https://github.com/alexcrichton/futures-rs) to achieve asynchronous I/O
-//! and defines a lot of pattern objects to facilitate writing I/O related codes declaratively.
+//! `handy_async` uses [futures](https://github.com/alexcrichton/futures-rs) to
+//! achieve asynchronous operations (mainly I/O related operations)
+//! and defines a lot of pattern objects to facilitate writing declarative code.
 //!
 //! For example, you can write a function to read a TCP header
 //! defined in [RFC-793](https://www.ietf.org/rfc/rfc793.txt) asynchronously as following.
 //!
 //! ```no_run
-//! extern crate handy_io;
+//! extern crate handy_async;
 //! extern crate futures;
 //!
 //! use std::io::{Read, Error};
 //! use futures::{Future, BoxFuture};
-//! use handy_io::io::ReadFrom;
-//! use handy_io::pattern::{Pattern, Endian};
-//! use handy_io::pattern::read::{U16, U32};
+//! use handy_async::io::ReadFrom;
+//! use handy_async::pattern::{Pattern, Endian};
+//! use handy_async::pattern::read::{U16, U32};
 //!
 //! struct TcpHeader {
 //!     source_port: u16,

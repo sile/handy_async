@@ -24,11 +24,11 @@ mod match_tuple;
 /// Defines your own pattern matcher:
 ///
 /// ```
-/// # extern crate handy_io;
+/// # extern crate handy_async;
 /// # extern crate futures;
-/// use handy_io::pattern::Pattern;
-/// use handy_io::matcher::{Matcher, AsyncMatch};
-/// use handy_io::error::AsyncError;
+/// use handy_async::pattern::Pattern;
+/// use handy_async::matcher::{Matcher, AsyncMatch};
+/// use handy_async::error::AsyncError;
 /// use futures::Future;
 ///
 /// // Defines pattern.

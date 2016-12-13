@@ -21,9 +21,9 @@ pub trait AsyncWrite: Write + Sized {
     ///
     /// ```
     /// # extern crate futures;
-    /// # extern crate handy_io;
+    /// # extern crate handy_async;
     /// use futures::Future;
-    /// use handy_io::io::AsyncWrite;
+    /// use handy_async::io::AsyncWrite;
     ///
     /// # fn main() {
     /// let (output, _, _) = vec![].async_write(b"hello").wait().ok().unwrap();
@@ -47,10 +47,10 @@ pub trait AsyncWrite: Write + Sized {
     ///
     /// ```
     /// # extern crate futures;
-    /// # extern crate handy_io;
+    /// # extern crate handy_async;
     /// use std::io::ErrorKind;
     /// use futures::Future;
-    /// use handy_io::io::AsyncWrite;
+    /// use handy_async::io::AsyncWrite;
     ///
     /// # fn main() {
     /// let (output, _) = vec![].async_write_all(b"hello").wait().ok().unwrap();
@@ -70,10 +70,10 @@ pub trait AsyncWrite: Write + Sized {
     ///
     /// ```
     /// # extern crate futures;
-    /// # extern crate handy_io;
+    /// # extern crate handy_async;
     /// use std::io::BufWriter;
     /// use futures::Future;
-    /// use handy_io::io::AsyncWrite;
+    /// use handy_async::io::AsyncWrite;
     ///
     /// # fn main() {
     /// let writer = BufWriter::new(vec![]);
