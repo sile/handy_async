@@ -29,11 +29,6 @@ impl<T> Counter<T> {
         }
     }
 
-    /// Equivalent to `Counter::new(std::io::sink())`.
-    pub fn with_sink() -> Self {
-        Self::new(io::sink())
-    }
-
     /// Gets a reference to the underlying stream.
     pub fn inner_ref(&self) -> &T {
         &self.inner
@@ -57,6 +52,12 @@ impl<T> Counter<T> {
     /// Returns the total byte size read from the underlying stream.
     pub fn read_size(&self) -> usize {
         self.read_size
+    }
+}
+impl Counter<io::Sink> {
+    /// Equivalent to `Counter::new(std::io::sink())`.
+    pub fn with_sink() -> Self {
+        Self::new(io::sink())
     }
 }
 impl<T: Read> Read for Counter<T> {
