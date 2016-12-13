@@ -7,7 +7,7 @@ use std::io::{self, Read, Write, Result};
 ///
 /// ```
 /// use std::io::{self, Write};
-/// use handy_async::io::Counter;
+/// use handy_async::io::misc::Counter;
 ///
 /// let mut writer = Counter::new(io::sink());
 /// writer.write(b"Hello").unwrap();
