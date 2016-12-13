@@ -3,7 +3,7 @@ use std::io;
 
 pub use self::async_read::AsyncRead;
 pub use self::async_write::AsyncWrite;
-pub use self::read_pattern::{ReadPattern, PatternReader};
+pub use self::read_pattern::{ReadFrom, PatternReader};
 pub use self::write_pattern::{WriteInto, PatternWriter};
 
 use error::AsyncError;
@@ -11,7 +11,7 @@ use error::AsyncError;
 pub mod futures {
     pub use super::async_read::{ReadBytes, ReadNonEmpty, ReadExact};
     pub use super::read_pattern::{ReadEos, ReadUntil, ReadBuf, ReadPartialBuf};
-    pub use super::read_pattern::{ReadString, ReadFixnum};
+    pub use super::read_pattern::{ReadString, ReadFixnum, ReadPattern};
 
     pub use super::async_write::{Flush, WriteBytes, WriteAll};
     pub use super::write_pattern::{WritePattern, WriteBuf, WritePartialBuf};

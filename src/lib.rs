@@ -12,7 +12,7 @@
 //!
 //! use std::io::{Read, Error};
 //! use futures::{Future, BoxFuture};
-//! use handy_io::io::ReadPattern;
+//! use handy_io::io::ReadFrom;
 //! use handy_io::pattern::{Pattern, Endian};
 //! use handy_io::pattern::read::{U16, U32};
 //!

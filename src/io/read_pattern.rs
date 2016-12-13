@@ -11,6 +11,10 @@ use pattern::combinators::{self, BE, LE, PartialBuf};
 use matcher::{AsyncMatch, Matcher};
 use super::AsyncIoError;
 
+/// A matcher to read patterns from the inner reader `R`.
+///
+/// This is mainly used to define your own reading patterns.
+/// See the example of the [ReadFrom](./trait.ReadFrom.html) trait.
 pub struct PatternReader<R>(R);
 impl<R: Read> Read for PatternReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
@@ -21,15 +25,89 @@ impl<R> Matcher for PatternReader<R> {
     type Error = Error;
 }
 
-pub trait ReadPattern<R: Read>: AsyncMatch<PatternReader<R>> {
-    fn read_from(self, reader: R) -> ReadFrom<Self, R> {
-        ReadFrom(self.async_match(PatternReader(reader)))
+/// The `ReadFrom` trait allows for reading a value of the pattern from a source asynchronously.
+///
+/// # Notice
+///
+/// For executing asynchronously, we assume the writer `R` returns
+/// `the std::io::ErrorKind::WouldBlock` error if a read operation would be about to block.
+///
+/// # Examples
+///
+/// Defines your own reading pattern:
+///
+/// ```
+/// # extern crate futures;
+/// # extern crate handy_io;
+/// use std::io::{Read, Error, ErrorKind};
+/// use futures::{Future, BoxFuture};
+/// use handy_io::io::{ReadFrom, PatternReader, AsyncIoError};
+/// use handy_io::pattern::Pattern;
+/// use handy_io::matcher::AsyncMatch;
+///
+/// // Defines pattern.
+/// struct HelloWorld;
+/// impl Pattern for HelloWorld {
+///    type Value = Vec<u8>;
+/// }
+///
+/// // Implements pattern maching between `PatternReader<R>` and `HelloWorld`.
+/// impl<R: Read + Send + 'static> AsyncMatch<PatternReader<R>> for HelloWorld {
+///     type Future = BoxFuture<(PatternReader<R>, Vec<u8>), AsyncIoError<PatternReader<R>>>;
+///     fn async_match(self, matcher: PatternReader<R>) -> Self::Future {
+///         let buf = vec![0; b"Hello World!".len()];
+///         buf.and_then(|b| if b == b"Hello World!" {
+///             Ok(b)
+///         } else {
+///             Err(Error::new(ErrorKind::InvalidData, format!("Unexpected bytes {:?}", b)) )
+///         }).async_match(matcher).boxed()
+///     }
+/// }
+///
+/// # fn main() {
+/// // Executes pattern matchings.
+///
+/// // matched
+/// let pattern = (vec![0; 5], HelloWorld);
+/// let (rest, value) = pattern.read_from(&b"Hey! Hello World!!!"[..]).wait().unwrap();
+/// assert_eq!(value.0, b"Hey! ");
+/// assert_eq!(value.1, b"Hello World!");
+/// assert_eq!(rest, b"!!");
+///
+/// // unmatched
+/// let pattern = (vec![0; 5], HelloWorld);
+/// let e = pattern.read_from(&b"Hey! Hello Rust!!!"[..]).wait().err().unwrap();
+/// assert_eq!(e.error_ref().kind(), ErrorKind::InvalidData);
+/// # }
+/// ```
+pub trait ReadFrom<R: Read>: AsyncMatch<PatternReader<R>> {
+    /// Creates a future instance to read a value of the pattern from `reader`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # extern crate futures;
+    /// # extern crate handy_io;
+    /// use handy_io::io::ReadFrom;
+    /// use handy_io::pattern::{Pattern, Endian};
+    /// use handy_io::pattern::read::{U8, U16};
+    /// use futures::Future;
+    ///
+    /// # fn main() {
+    /// let mut input = &[1, 0, 2][..];
+    /// let pattern = (U8, U16.be());
+    /// let future = pattern.read_from(&mut input);
+    /// assert_eq!(future.wait().unwrap().1, (1, 2));
+    /// # }
+    /// ```
+    fn read_from(self, reader: R) -> ReadPattern<Self, R> {
+        ReadPattern(self.async_match(PatternReader(reader)))
     }
 }
-impl<R: Read, T> ReadPattern<R> for T where T: AsyncMatch<PatternReader<R>> {}
+impl<R: Read, T> ReadFrom<R> for T where T: AsyncMatch<PatternReader<R>> {}
 
-pub struct ReadFrom<P, R>(P::Future) where P: AsyncMatch<PatternReader<R>>;
-impl<P, R> Future for ReadFrom<P, R>
+pub struct ReadPattern<P, R>(P::Future) where P: AsyncMatch<PatternReader<R>>;
+impl<P, R> Future for ReadPattern<P, R>
     where P: AsyncMatch<PatternReader<R>>
 {
     type Item = (R, P::Value);
