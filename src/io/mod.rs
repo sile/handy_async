@@ -19,6 +19,8 @@ pub mod futures {
     pub use super::write_pattern::{WriteFixnum, WriteFlush};
 }
 
+pub mod misc;
+
 mod async_read;
 mod async_write;
 mod read_pattern;
