@@ -9,7 +9,8 @@ use super::Matcher;
 /// between a pattern `Self` and a matcher `M`.
 ///
 /// Normally, users will not be aware of this trait and will use
-/// more specific interfaces like `TODO:ReadFrom` and `TODO:WriteTo`.
+/// more specific interfaces like [ReadFrom](../pattern/trait.ReadFrom.html) and
+/// [WriteInto](../pattern/trait.WriteInto.html).
 ///
 /// For details on how to define your own matcher,
 /// see the documentation of [Matcher](./trait.Matcher.html) trait.

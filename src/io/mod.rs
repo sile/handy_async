@@ -9,6 +9,7 @@ pub use self::write_pattern::{WriteInto, PatternWriter};
 use error::AsyncError;
 
 pub mod futures {
+    //! I/O operation related futures.
     pub use super::async_read::{ReadBytes, ReadNonEmpty, ReadExact};
     pub use super::read_pattern::{ReadEos, ReadUntil, ReadBuf, ReadPartialBuf};
     pub use super::read_pattern::{ReadString, ReadFixnum, ReadPattern};

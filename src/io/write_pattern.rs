@@ -91,6 +91,9 @@ pub trait WriteInto<W: Write>: AsyncMatch<PatternWriter<W>> {
 }
 impl<W: Write, T> WriteInto<W> for T where T: AsyncMatch<PatternWriter<W>> {}
 
+/// Future to write a pattern `P` into `W`.
+///
+/// This is created by calling `WriteInto::write_into` method.
 pub struct WritePattern<P, W>(P::Future) where P: AsyncMatch<PatternWriter<W>>;
 impl<P, W> Future for WritePattern<P, W>
     where P: AsyncMatch<PatternWriter<W>>
@@ -102,6 +105,10 @@ impl<P, W> Future for WritePattern<P, W>
     }
 }
 
+/// A future which will flush the internal buffer of `W`.
+///
+/// This is created by calling `WriteInto::write_into` method for
+/// `Flush` pattern.
 pub struct WriteFlush<W>(super::futures::Flush<PatternWriter<W>>);
 impl<W: Write> Future for WriteFlush<W> {
     type Item = (PatternWriter<W>, ());
@@ -117,6 +124,20 @@ impl<W: Write> AsyncMatch<PatternWriter<W>> for write::Flush {
     }
 }
 
+/// A future which will write bytes contained in the buffer `B` to `W`.
+///
+/// This future is generally created by invoking
+/// `WriteInto::write_into` method for buffer like patterns
+/// such as the following.
+///
+/// ```
+/// use handy_io::io::WriteInto;
+/// use handy_io::pattern::{Buf, Window};
+///
+/// vec![0; 32].write_into(std::io::sink());
+/// Buf([0; 32]).write_into(std::io::sink());
+/// Window::new([0; 32]).skip(4).write_into(std::io::sink());
+/// ```
 pub struct WriteBuf<W, B>(super::futures::WriteAll<PatternWriter<W>, B>);
 impl<W: Write, B: AsRef<[u8]>> Future for WriteBuf<W, B> {
     type Item = (PatternWriter<W>, B);
@@ -150,6 +171,27 @@ impl<W: Write, B: AsRef<[u8]>> AsyncMatch<PatternWriter<W>> for Window<B> {
     }
 }
 
+/// A future which will write bytes contained in the buffer `B` to `W`
+/// to the extent possible.
+///
+/// This future is generally created by invoking
+/// `WriteInto::write_into` method for `PartialBuf` pattern
+/// such as the following.
+///
+/// ```
+/// # extern crate futures;
+/// # extern crate handy_io;
+/// use handy_io::io::WriteInto;
+/// use handy_io::pattern::AllowPartial;
+/// use futures::Future;
+///
+/// # fn main() {
+/// // `PartialBuf` pattern is created via `allow_partial` method.
+/// let pattern = vec![0; 32].allow_partial();
+/// let (_, (_, written_size)) = pattern.write_into(&mut &mut [0; 4][..]).wait().unwrap();
+/// assert_eq!(written_size, 4);
+/// # }
+/// ```
 pub struct WritePartialBuf<W, B>(super::futures::WriteBytes<PatternWriter<W>, B>);
 impl<W: Write, B: AsRef<[u8]>> Future for WritePartialBuf<W, B> {
     type Item = (PatternWriter<W>, (B, usize));
@@ -168,6 +210,7 @@ impl<W: Write, B: AsRef<[u8]>> AsyncMatch<PatternWriter<W>> for PartialBuf<B> {
     }
 }
 
+/// A future which will write a fixnum associated with `P` into `W`.
 pub type WriteFixnum<W, P, T> where P: Pattern =
     <combinators::Map<P, fn (P::Value) -> T> as AsyncMatch<PatternWriter<W>>>::Future;
 macro_rules! impl_write_fixnum_pattern {

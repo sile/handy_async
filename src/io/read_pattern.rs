@@ -106,6 +106,9 @@ pub trait ReadFrom<R: Read>: AsyncMatch<PatternReader<R>> {
 }
 impl<R: Read, T> ReadFrom<R> for T where T: AsyncMatch<PatternReader<R>> {}
 
+/// Future to match between a pattern `P` and bytes read from `R`.
+///
+/// This is created by calling `ReadFrom::read_from` method.
 pub struct ReadPattern<P, R>(P::Future) where P: AsyncMatch<PatternReader<R>>;
 impl<P, R> Future for ReadPattern<P, R>
     where P: AsyncMatch<PatternReader<R>>
@@ -117,6 +120,20 @@ impl<P, R> Future for ReadPattern<P, R>
     }
 }
 
+/// A future which will read bytes from `R` to fill the buffer `B` completely.
+///
+/// This future is generally created by invoking
+/// `ReadFrom::read_from` method for buffer like patterns
+/// such as the following.
+///
+/// ```
+/// use handy_io::io::ReadFrom;
+/// use handy_io::pattern::{Buf, Window};
+///
+/// vec![0; 32].read_from(std::io::empty());
+/// Buf([0; 32]).read_from(std::io::empty());
+/// Window::new([0; 32]).skip(4).read_from(std::io::empty());
+/// ```
 pub struct ReadBuf<R, B>(ReadExact<PatternReader<R>, Buf<B>>);
 impl<R: Read, B: AsMut<[u8]>> Future for ReadBuf<R, B> {
     type Item = (PatternReader<R>, B);
@@ -144,6 +161,27 @@ impl<R: Read, B: AsMut<[u8]>> AsyncMatch<PatternReader<R>> for Window<B> {
     }
 }
 
+/// A future which will read bytes from `R` to fill the buffer `B`
+/// to the extent possible.
+///
+/// This future is generally created by invoking
+/// `ReadFrom::read_from` method for `PartialBuf` pattern
+/// such as the following.
+///
+/// ```
+/// # extern crate futures;
+/// # extern crate handy_io;
+/// use handy_io::io::ReadFrom;
+/// use handy_io::pattern::AllowPartial;
+/// use futures::Future;
+///
+/// # fn main() {
+/// // `PartialBuf` pattern is created via `allow_partial` method.
+/// let pattern = vec![0; 32].allow_partial();
+/// let (_, (_, read_size)) = pattern.read_from(&mut &[0; 4][..]).wait().unwrap();
+/// assert_eq!(read_size, 4);
+/// # }
+/// ```
 pub struct ReadPartialBuf<R, B>(ReadNonEmpty<PatternReader<R>, B>);
 impl<R: Read, B: AsMut<[u8]>> Future for ReadPartialBuf<R, B> {
     type Item = (PatternReader<R>, (B, usize));
@@ -159,6 +197,19 @@ impl<R: Read, B: AsMut<[u8]>> AsyncMatch<PatternReader<R>> for PartialBuf<B> {
     }
 }
 
+/// A future which will read `String` from `R`.
+///
+/// This future is generally created by invoking
+/// `ReadFrom::read_from` method for `String` such as the following.
+///
+/// If the read bytes are not a valid UTF-8 string, the future will return an error.
+///
+/// ```
+/// use handy_io::io::ReadFrom;
+///
+/// let str_buf = String::from_utf8(vec![0; 32]).unwrap();
+/// str_buf.read_from(std::io::empty()); // This returns a `ReadString` instance
+/// ```
 pub struct ReadString<R>(ReadExact<PatternReader<R>, Vec<u8>>);
 impl<R: Read> Future for ReadString<R> {
     type Item = (PatternReader<R>, String);
@@ -183,6 +234,7 @@ impl<R: Read> AsyncMatch<PatternReader<R>> for String {
     }
 }
 
+/// A future which will read a fixnum associated with `P` from `R`.
 pub type ReadFixnum<R, P, T> where P: Pattern =
     <combinators::Map<P, fn(P::Value) -> T> as AsyncMatch<PatternReader<R>>>::Future;
 macro_rules! impl_read_fixnum_pattern {
@@ -258,6 +310,31 @@ impl_read_fixnum_pattern!(read::F64, f64, 8, |b: &[u8]| NativeEndian::read_f64(b
 impl_read_fixnum_pattern!(BE<read::F64>, f64, 8, |b: &[u8]| BigEndian::read_f64(b));
 impl_read_fixnum_pattern!(LE<read::F64>, f64, 8, |b: &[u8]| LittleEndian::read_f64(b));
 
+/// A future which will determine whether
+/// the stream `R` is reached to the "End-Of-Stream" state.
+///
+/// This future is generally created by invoking
+/// `ReadFrom::read_from` method for `Eos` pattern.
+///
+/// # Example
+///
+/// ```
+/// # extern crate futures;
+/// # extern crate handy_io;
+/// use handy_io::io::ReadFrom;
+/// use handy_io::pattern::read::Eos;
+/// use futures::Future;
+///
+/// # fn main() {
+/// let (_, is_eos) = Eos.read_from(std::io::empty()).wait().unwrap();
+/// assert_eq!(is_eos, Ok(()));
+///
+/// // If target stream still contains any data,
+/// // the first byte of the data will be returned.
+/// let (_, (_, is_eos)) = (vec![0; 3], Eos).read_from(&mut &[0, 1, 2, 3][..]).wait().unwrap();
+/// assert_eq!(is_eos, Err(3));
+/// # }
+/// ```
 pub struct ReadEos<R>(ReadExact<PatternReader<R>, [u8; 1]>);
 impl<R: Read> Future for ReadEos<R> {
     type Item = (PatternReader<R>, std::result::Result<(), u8>);
@@ -284,6 +361,10 @@ impl<R: Read> AsyncMatch<PatternReader<R>> for read::Eos {
     }
 }
 
+/// A future which continues reading until `F` returns `Ok(Some(T))` or `Err(..)`.
+///
+/// This future is generally created by invoking
+/// `ReadFrom::read_from` method for `Until` pattern.
 pub struct ReadUntil<R, F, T>
     where R: Read,
           F: Fn(&[u8], bool) -> Result<Option<T>>
