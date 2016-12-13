@@ -2,7 +2,7 @@
 name = "handy_async"
 version = "0.2.0"
 authors = ["Takeru Ohta <phjgt308@gmail.com>"]
-description = "A handy pattern and futures based asynchronous I/O library"
+description = "A handy library for describing asynchronous code declaratively"
 documentation = "https://docs.rs/handy_async"
 homepage = "https://github.com/sile/handy_async"
 repository = "https://github.com/sile/handy_async"
