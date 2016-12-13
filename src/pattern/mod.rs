@@ -1,5 +1,8 @@
 //! Patterns.
-use futures::{self, Future};
+use futures::{self, Future, BoxFuture};
+
+use matcher::{AsyncMatch, Matcher};
+use error::AsyncError;
 
 pub mod read;
 pub mod write;
@@ -81,6 +84,7 @@ pub trait Pattern: Sized {
         combinators_impl::repeat(self)
     }
 
+    /// Returnes a boxed pattern to match with a matcher `M`.
     fn boxed<M: Matcher>(self) -> BoxPattern<M, Self::Value>
         where Self: AsyncMatch<M> + 'static,
               Self::Future: Send + 'static
@@ -90,11 +94,8 @@ pub trait Pattern: Sized {
     }
 }
 
-use futures::BoxFuture;
-use matcher::{AsyncMatch, Matcher};
-use error::AsyncError;
+/// Boxed pattern.
 pub struct BoxPattern<M: Matcher, T>(Box<FnMut(M) -> BoxFuture<(M, T), AsyncError<M, M::Error>>>);
-
 impl<M: Matcher, T> Pattern for BoxPattern<M, T> {
     type Value = T;
 }
@@ -127,9 +128,15 @@ impl<I, P> Pattern for Iter<I>
     type Value = ();
 }
 
-// TODO:
+/// Option pattern.
+///
+/// If the value is `None`, it will be ignored.
+/// If the value is `Some(T)`,
+/// the pattern `T` will be tried to matching with a matcher.
+///
+/// This is equivalent to the standard `Option` type.
+/// This is defined only for documenting purpose.
 pub type Option<T> = ::std::option::Option<T>;
-
 impl<P> Pattern for Option<P>
     where P: Pattern
 {
