@@ -1,4 +1,4 @@
-use futures::{self, Poll, Async, Future};
+use futures::{self, Poll, Async, Future, Stream};
 
 use pattern::{Pattern, Branch, Iter};
 use pattern::combinators::{Map, AndThen, Then, OrElse, Or, Chain, IterFold};
@@ -22,6 +22,52 @@ pub trait AsyncMatch<M: Matcher>: Pattern {
     /// Creates a future which will produce a `Self::Value` by
     /// matching this pattern and the `matcher`.
     fn async_match(self, matcher: M) -> Self::Future;
+
+    /// Consumes this pattern and the `matcher`,
+    /// returning a stream which will produce a sequence of matched values.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # extern crate futures;
+    /// # extern crate handy_async;
+    /// use futures::{Future, Stream};
+    /// use handy_async::pattern::read::U8;
+    /// use handy_async::matcher::AsyncMatch;
+    /// use handy_async::io::PatternReader;
+    ///
+    /// # fn main() {
+    /// let matcher = PatternReader::new(&b"hello"[..]);
+    /// let values = U8.into_stream(matcher).take(3).collect().wait().unwrap();
+    /// assert_eq!(values, b"hel");
+    /// # }
+    /// ```
+    fn into_stream(self, matcher: M) -> MatchStream<M, Self>
+        where Self: Clone
+    {
+        let p = self.clone();
+        MatchStream(self, p.async_match(matcher))
+    }
+}
+
+/// Stream to produce a sequence of matched values.
+///
+/// This is created by calling `AsyncMatch::into_stream` method.
+pub struct MatchStream<M: Matcher, P>(P, P::Future) where P: AsyncMatch<M>;
+impl<M: Matcher, P> Stream for MatchStream<M, P>
+    where P: AsyncMatch<M> + Clone
+{
+    type Item = P::Value;
+    type Error = AsyncError<M, M::Error>;
+    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+        if let Async::Ready((m, v)) = self.1.poll()? {
+            let p = self.0.clone();
+            self.1 = p.async_match(m);
+            Ok(Async::Ready(Some(v)))
+        } else {
+            Ok(Async::NotReady)
+        }
+    }
 }
 
 /// Future to do pattern matching of

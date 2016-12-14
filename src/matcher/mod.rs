@@ -12,6 +12,11 @@ pub mod futures {
     pub use super::match_tuple::{MatchTuple7, MatchTuple8, MatchTuple9, MatchTuple10};
 }
 
+pub mod streams {
+    //! Streams.
+    pub use super::async_match::MatchStream;
+}
+
 mod async_match;
 mod match_tuple;
 

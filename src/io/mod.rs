@@ -18,6 +18,10 @@ pub mod futures {
     pub use super::write_pattern::{WritePattern, WriteBuf, WritePartialBuf};
     pub use super::write_pattern::{WriteFixnum, WriteFlush};
 }
+pub mod streams {
+    //! I/O operation related streams.
+    pub use super::read_pattern::ReadStream;
+}
 
 pub mod misc;
 

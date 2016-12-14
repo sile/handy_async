@@ -1,6 +1,6 @@
 use std;
 use std::io::{Read, Error, ErrorKind, Result};
-use futures::{Poll, Async, Future};
+use futures::{Poll, Async, Future, Stream};
 use byteorder::{ByteOrder, NativeEndian, BigEndian, LittleEndian};
 
 use io::AsyncRead;
@@ -9,6 +9,7 @@ use pattern::{Pattern, Buf, Window};
 use pattern::read;
 use pattern::combinators::{self, BE, LE, PartialBuf};
 use matcher::{AsyncMatch, Matcher};
+use matcher::streams::MatchStream;
 use super::AsyncIoError;
 
 /// A matcher to read patterns from the inner reader `R`.
@@ -109,8 +110,46 @@ pub trait ReadFrom<R: Read>: AsyncMatch<PatternReader<R>> {
     fn read_from(self, reader: R) -> ReadPattern<Self, R> {
         ReadPattern(self.async_match(PatternReader(reader)))
     }
+
+    /// Consumes this pattern and the `reader`,
+    /// returning a stream which will produce a sequence of read values.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # extern crate futures;
+    /// # extern crate handy_async;
+    /// use futures::{Future, Stream};
+    /// use handy_async::pattern::read::U8;
+    /// use handy_async::io::ReadFrom;
+    ///
+    /// # fn main() {
+    /// let values = U8.into_stream(&b"hello"[..]).take(3).collect().wait().unwrap();
+    /// assert_eq!(values, b"hel");
+    /// # }
+    /// ```
+    fn into_stream(self, reader: R) -> ReadStream<R, Self>
+        where Self: Clone
+    {
+        ReadStream(AsyncMatch::into_stream(self, PatternReader(reader)))
+    }
 }
 impl<R: Read, T> ReadFrom<R> for T where T: AsyncMatch<PatternReader<R>> {}
+
+/// Stream to produce a sequence of read values.
+///
+/// This is created by calling `ReadFrom::into_stream` method.
+pub struct ReadStream<R: Read, P>(MatchStream<PatternReader<R>, P>)
+    where P: AsyncMatch<PatternReader<R>>;
+impl<R: Read, P> Stream for ReadStream<R, P>
+    where P: AsyncMatch<PatternReader<R>> + Clone
+{
+    type Item = P::Value;
+    type Error = AsyncIoError<R>;
+    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+        self.0.poll().map_err(|e| e.map_state(|r| r.0))
+    }
+}
 
 /// Future to match between a pattern `P` and bytes read from `R`.
 ///
