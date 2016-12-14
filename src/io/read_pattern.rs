@@ -16,6 +16,12 @@ use super::AsyncIoError;
 /// This is mainly used to define your own reading patterns.
 /// See the example of the [ReadFrom](./trait.ReadFrom.html) trait.
 pub struct PatternReader<R>(R);
+impl<R: Read> PatternReader<R> {
+    /// Makes new `PatternReader` instance.
+    pub fn new(inner: R) -> Self {
+        PatternReader(inner)
+    }
+}
 impl<R: Read> Read for PatternReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         self.0.read(buf)

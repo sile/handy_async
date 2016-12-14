@@ -13,6 +13,12 @@ use io::{AsyncWrite, AsyncIoError};
 /// This is mainly used to define your own writing patterns.
 /// See the example of the [WriteInto](./trait.WriteInto.html) trait.
 pub struct PatternWriter<W>(W);
+impl<W: Write> PatternWriter<W> {
+    /// Makes new `PatternWriter` instance.
+    pub fn new(inner: W) -> Self {
+        PatternWriter(inner)
+    }
+}
 impl<W: Write> Write for PatternWriter<W> {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
         self.0.write(buf)
