@@ -201,3 +201,13 @@ pub fn until<F, T>(f: F) -> Until<F, T>
         _phantom: PhantomData,
     }
 }
+
+/// A pattern which indicates a line string.
+///
+/// A line is ended with a newline character `\n`.
+/// The final line ending is optional.
+#[derive(Debug, Clone)]
+pub struct Line;
+impl Pattern for Line {
+    type Value = String;
+}

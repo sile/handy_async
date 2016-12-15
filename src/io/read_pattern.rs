@@ -406,6 +406,89 @@ impl<R: Read> AsyncMatch<PatternReader<R>> for read::Eos {
     }
 }
 
+/// A future which will read a line string.
+///
+/// A line is ended with a newline character `\n`.
+/// The final line ending is optional.
+///
+/// This future is generally created by invoking
+/// `ReadFrom::read_from` method for `Line` pattern.
+///
+/// # Example
+///
+/// ```
+/// # extern crate futures;
+/// # extern crate handy_async;
+/// use std::io::ErrorKind;
+/// use handy_async::io::ReadFrom;
+/// use handy_async::pattern::read::Line;
+/// use futures::Future;
+///
+/// # fn main() {
+/// let input = &b"hello\nworld!"[..];
+///
+/// let (input, line) = Line.read_from(input).wait().unwrap();
+/// assert_eq!(line, "hello\n");
+///
+/// let (input, line) = Line.read_from(input).wait().unwrap();
+/// assert_eq!(line, "world!");
+///
+/// let e = Line.read_from(input).wait().err().unwrap();
+/// assert_eq!(e.error_ref().kind(), ErrorKind::UnexpectedEof);
+/// # }
+/// ```
+pub struct ReadLine<R>(Option<(PatternReader<R>, Vec<u8>)>);
+impl<R: Read> Future for ReadLine<R> {
+    type Item = (PatternReader<R>, String);
+    type Error = AsyncIoError<PatternReader<R>>;
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        let (mut reader, mut buf) = self.0.take().expect("Cannot poll ReadLine twice");
+
+        let mut byte = [0; 1];
+        match reader.read(&mut byte) {
+            Err(e) => {
+                if e.kind() == ErrorKind::WouldBlock {
+                    self.0 = Some((reader, buf));
+                    Ok(Async::NotReady)
+                } else {
+                    Err(AsyncIoError::new(reader, e))
+                }
+            }
+            Ok(0) if buf.is_empty() => {
+                let e = Error::new(ErrorKind::UnexpectedEof, "Cannot read a line");
+                Err(AsyncIoError::new(reader, e))
+            }
+            Ok(read_size) => {
+                let newline = if read_size == 0 {
+                    true
+                } else {
+                    let b = byte[0];
+                    buf.push(b);
+                    b == '\n' as u8
+                };
+                if newline {
+                    match String::from_utf8(buf) {
+                        Err(e) => {
+                            let e = Error::new(ErrorKind::InvalidInput, Box::new(e));
+                            Err(AsyncIoError::new(reader, e))
+                        }
+                        Ok(line) => Ok(Async::Ready((reader, line))),
+                    }
+                } else {
+                    self.0 = Some((reader, buf));
+                    self.poll()
+                }
+            }
+        }
+    }
+}
+impl<R: Read> AsyncMatch<PatternReader<R>> for read::Line {
+    type Future = ReadLine<R>;
+    fn async_match(self, matcher: PatternReader<R>) -> Self::Future {
+        ReadLine(Some((matcher, Vec::new())))
+    }
+}
+
 /// A future which continues reading until `F` returns `Ok(Some(T))` or `Err(..)`.
 ///
 /// This future is generally created by invoking
