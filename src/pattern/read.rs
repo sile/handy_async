@@ -2,7 +2,7 @@
 use std::io;
 use std::marker::PhantomData;
 
-use super::{Pattern, Endian};
+use super::{Pattern, Endian, TryAsLength};
 
 /// A pattern associated to 8-bit unsigned integers.
 #[derive(Debug, Clone)]
@@ -209,5 +209,23 @@ pub fn until<F, T>(f: F) -> Until<F, T>
 #[derive(Debug, Clone)]
 pub struct Line;
 impl Pattern for Line {
+    type Value = String;
+}
+
+/// A pattern which represents a length-prefixed bytes.
+pub struct LengthPrefixedBytes<P>(pub P);
+impl<P> Pattern for LengthPrefixedBytes<P>
+    where P: Pattern,
+          P::Value: TryAsLength
+{
+    type Value = Vec<u8>;
+}
+
+/// A pattern which represents a length-prefixed string.
+pub struct LengthPrefixedStr<P>(pub P);
+impl<P> Pattern for LengthPrefixedStr<P>
+    where P: Pattern,
+          P::Value: TryAsLength
+{
     type Value = String;
 }

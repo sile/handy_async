@@ -5,7 +5,7 @@ use byteorder::{ByteOrder, NativeEndian, BigEndian, LittleEndian};
 
 use io::AsyncRead;
 use io::futures::{ReadBytes, ReadExact, ReadNonEmpty};
-use pattern::{Pattern, Buf, Window};
+use pattern::{Pattern, Buf, Window, TryAsLength, Branch};
 use pattern::read;
 use pattern::combinators::{self, BE, LE, PartialBuf};
 use matcher::{AsyncMatch, Matcher};
@@ -281,6 +281,97 @@ impl<R: Read> AsyncMatch<PatternReader<R>> for String {
     type Future = ReadString<R>;
     fn async_match(self, matcher: PatternReader<R>) -> Self::Future {
         ReadString(matcher.async_read_exact(self.into_bytes()))
+    }
+}
+
+/// A future which will read a length-prefixed bytes.
+///
+/// This is created by calling `ReadFrom::read_from` method for `LengthPrefixedBytes` pattern.
+///
+/// # Examples
+/// ```
+/// use handy_async::io::ReadFrom;
+/// use handy_async::pattern::read::{U8, LengthPrefixedBytes};
+///
+/// let mut input = vec![3];
+/// input.extend_from_slice(b"hello");
+///
+/// let bytes = LengthPrefixedBytes(U8).sync_read_from(&input[..]).unwrap();
+/// assert_eq!(bytes, b"hel");
+/// ```
+pub struct ReadLengthPrefixedBytes<R: Read, P>(
+    <combinators::AndThen<P, fn(P::Value) -> Branch<Vec<u8>, Result<Vec<u8>>>> as
+     AsyncMatch<PatternReader<R>>>::Future) where P: AsyncMatch<PatternReader<R>>;
+impl<R: Read, P> Future for ReadLengthPrefixedBytes<R, P>
+    where P: AsyncMatch<PatternReader<R>>
+{
+    type Item = (PatternReader<R>, Vec<u8>);
+    type Error = AsyncIoError<PatternReader<R>>;
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        self.0.poll()
+    }
+}
+impl<R: Read, P> AsyncMatch<PatternReader<R>> for read::LengthPrefixedBytes<P>
+    where P: AsyncMatch<PatternReader<R>>,
+          P::Value: TryAsLength
+{
+    type Future = ReadLengthPrefixedBytes<R, P>;
+    fn async_match(self, matcher: PatternReader<R>) -> Self::Future {
+        fn conv<T>(len: T) -> Branch<Vec<u8>, Result<Vec<u8>>>
+            where T: TryAsLength
+        {
+            if let Some(len) = len.try_as_length() {
+                Branch::A(vec![0; len])
+            } else {
+                Branch::B(Err(Error::new(ErrorKind::InvalidData, "Too large length")))
+            }
+        }
+        ReadLengthPrefixedBytes(self.0.and_then(conv as _).async_match(matcher))
+    }
+}
+
+/// A future which will read a length-prefixed string.
+///
+/// This is created by calling `ReadFrom::read_from` method for `LengthPrefixedStr` pattern.
+///
+/// # Examples
+/// ```
+/// use handy_async::io::ReadFrom;
+/// use handy_async::pattern::read::{U8, LengthPrefixedStr};
+///
+/// let mut input = vec![3];
+/// input.extend_from_slice(b"hello");
+///
+/// let string = LengthPrefixedStr(U8).sync_read_from(&input[..]).unwrap();
+/// assert_eq!(string, "hel");
+/// ```
+pub struct ReadLengthPrefixedStr<R: Read, P>(ReadLengthPrefixedBytes<R, P>)
+    where P: AsyncMatch<PatternReader<R>>;
+impl<R: Read, P> Future for ReadLengthPrefixedStr<R, P>
+    where P: AsyncMatch<PatternReader<R>>
+{
+    type Item = (PatternReader<R>, String);
+    type Error = AsyncIoError<PatternReader<R>>;
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        if let Async::Ready((m, b)) = self.0.poll()? {
+            match String::from_utf8(b) {
+                Err(e) => {
+                    Err(AsyncIoError::new(m, Error::new(ErrorKind::InvalidData, Box::new(e))))
+                }
+                Ok(s) => Ok(Async::Ready((m, s))),
+            }
+        } else {
+            Ok(Async::NotReady)
+        }
+    }
+}
+impl<R: Read, P> AsyncMatch<PatternReader<R>> for read::LengthPrefixedStr<P>
+    where P: AsyncMatch<PatternReader<R>>,
+          P::Value: TryAsLength
+{
+    type Future = ReadLengthPrefixedStr<R, P>;
+    fn async_match(self, matcher: PatternReader<R>) -> Self::Future {
+        ReadLengthPrefixedStr(read::LengthPrefixedBytes(self.0).async_match(matcher))
     }
 }
 

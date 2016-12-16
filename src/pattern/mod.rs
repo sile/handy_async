@@ -1,4 +1,5 @@
 //! Patterns.
+use std::usize;
 use futures::{self, Future, BoxFuture};
 
 use matcher::{AsyncMatch, Matcher};
@@ -371,5 +372,43 @@ pub trait Endian: Sized {
     /// Indicates that "This is a big endian pattern".
     fn be(self) -> combinators::BE<Self> {
         combinators::BE(self)
+    }
+}
+
+/// An attempted conversion from `self` to `usize`.
+pub trait TryAsLength {
+    /// Performs the conversion.
+    fn try_as_length(&self) -> Option<usize>;
+}
+impl TryAsLength for u8 {
+    fn try_as_length(&self) -> Option<usize> {
+        Some(*self as usize)
+    }
+}
+impl TryAsLength for u16 {
+    fn try_as_length(&self) -> Option<usize> {
+        if *self as u64 <= usize::MAX as u64 {
+            Some(*self as usize)
+        } else {
+            None
+        }
+    }
+}
+impl TryAsLength for u32 {
+    fn try_as_length(&self) -> Option<usize> {
+        if *self as u64 <= usize::MAX as u64 {
+            Some(*self as usize)
+        } else {
+            None
+        }
+    }
+}
+impl TryAsLength for u64 {
+    fn try_as_length(&self) -> Option<usize> {
+        if *self as u64 <= usize::MAX as u64 {
+            Some(*self as usize)
+        } else {
+            None
+        }
     }
 }
