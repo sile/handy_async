@@ -111,6 +111,11 @@ pub trait ReadFrom<R: Read>: AsyncMatch<PatternReader<R>> {
         ReadPattern(self.async_match(PatternReader(reader)))
     }
 
+    /// Synchronous version of the `ReadFrom::read_from` method.
+    fn sync_read_from(self, reader: R) -> Result<Self::Value> {
+        self.read_from(reader).wait().map(|(_, v)| v).map_err(|e| e.into_error())
+    }
+
     /// Consumes this pattern and the `reader`,
     /// returning a stream which will produce a sequence of read values.
     ///

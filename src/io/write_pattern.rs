@@ -94,6 +94,11 @@ pub trait WriteInto<W: Write>: AsyncMatch<PatternWriter<W>> {
     fn write_into(self, writer: W) -> WritePattern<Self, W> {
         WritePattern(self.async_match(PatternWriter(writer)))
     }
+
+    /// Synchronous version of the `WriteInto::write_into` method.
+    fn sync_write_into(self, writer: W) -> Result<Self::Value> {
+        self.write_into(writer).wait().map(|(_, v)| v).map_err(|e| e.into_error())
+    }
 }
 impl<W: Write, T> WriteInto<W> for T where T: AsyncMatch<PatternWriter<W>> {}
 
