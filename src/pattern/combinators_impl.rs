@@ -127,6 +127,10 @@ impl<P0, P1> Chain<P0, P1> {
     pub fn unwrap(self) -> (P0, P1) {
         (self.0, self.1)
     }
+    #[allow(missing_docs)]
+    pub fn inner_ref(&self) -> (&P0, &P1) {
+        (&self.0, &self.1)
+    }
 }
 impl<P0, P1> Pattern for Chain<P0, P1>
     where P0: Pattern,
@@ -148,6 +152,10 @@ impl<I, F, T> IterFold<I, F, T> {
     #[allow(missing_docs)]
     pub fn unwrap(self) -> (I, F, T) {
         (self.0, self.1, self.2)
+    }
+    #[allow(missing_docs)]
+    pub fn iter_ref(&self) -> &I {
+        &self.0
     }
 }
 impl<I, P, F, T> Pattern for IterFold<I, F, T>

@@ -5,6 +5,7 @@ pub use self::async_read::AsyncRead;
 pub use self::async_write::AsyncWrite;
 pub use self::read_pattern::{ReadFrom, PatternReader};
 pub use self::write_pattern::{WriteInto, PatternWriter};
+pub use self::external_size::ExternalSize;
 
 use error::AsyncError;
 
@@ -29,6 +30,7 @@ mod async_read;
 mod async_write;
 mod read_pattern;
 mod write_pattern;
+mod external_size;
 
 /// I/O specific asynchronous error type.
 pub type AsyncIoError<T> = AsyncError<T, io::Error>;
