@@ -14,7 +14,7 @@ pub mod futures {
     pub use super::async_read::{ReadBytes, ReadNonEmpty, ReadExact};
     pub use super::read_pattern::{ReadEos, ReadUntil, ReadBuf, ReadPartialBuf};
     pub use super::read_pattern::{ReadString, ReadFixnum, ReadPattern};
-    pub use super::read_pattern::{ReadLengthPrefixedBytes, ReadLengthPrefixedStr};
+    pub use super::read_pattern::{ReadLengthPrefixedBytes, ReadUtf8, ReadAll};
 
     pub use super::async_write::{Flush, WriteBytes, WriteAll};
     pub use super::write_pattern::{WritePattern, WriteBuf, WritePartialBuf};

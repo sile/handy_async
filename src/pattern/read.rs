@@ -212,7 +212,15 @@ impl Pattern for Line {
     type Value = String;
 }
 
+/// A pattern which represents all bytes remaining in a stream.
+#[derive(Debug, Clone)]
+pub struct All;
+impl Pattern for All {
+    type Value = Vec<u8>;
+}
+
 /// A pattern which represents a length-prefixed bytes.
+#[derive(Debug, Clone)]
 pub struct LengthPrefixedBytes<P>(pub P);
 impl<P> Pattern for LengthPrefixedBytes<P>
     where P: Pattern,
@@ -221,11 +229,12 @@ impl<P> Pattern for LengthPrefixedBytes<P>
     type Value = Vec<u8>;
 }
 
-/// A pattern which represents a length-prefixed string.
-pub struct LengthPrefixedStr<P>(pub P);
-impl<P> Pattern for LengthPrefixedStr<P>
+/// A pattern which represents a UTF-8 string.
+#[derive(Debug, Clone)]
+pub struct Utf8<P>(pub P);
+impl<P> Pattern for Utf8<P>
     where P: Pattern,
-          P::Value: TryAsLength
+          Vec<u8>: From<P::Value>
 {
     type Value = String;
 }

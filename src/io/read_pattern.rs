@@ -330,31 +330,77 @@ impl<R: Read, P> AsyncMatch<PatternReader<R>> for read::LengthPrefixedBytes<P>
     }
 }
 
-/// A future which will read a length-prefixed string.
+/// A future which will read all bytes remaining in a stream.
 ///
-/// This is created by calling `ReadFrom::read_from` method for `LengthPrefixedStr` pattern.
+/// This is created by calling `ReadFrom::read_from` method for `All` pattern.
 ///
 /// # Examples
 /// ```
 /// use handy_async::io::ReadFrom;
-/// use handy_async::pattern::read::{U8, LengthPrefixedStr};
+/// use handy_async::pattern::read::{U8, All};
+///
+/// let (_, _, bytes) = (U8, U8, All).sync_read_from(&b"hello"[..]).unwrap();
+/// assert_eq!(bytes, b"llo");
+/// ```
+pub struct ReadAll<R: Read>(ReadBytes<PatternReader<R>, Window<Vec<u8>>>);
+impl<R: Read> Future for ReadAll<R> {
+    type Item = (PatternReader<R>, Vec<u8>);
+    type Error = AsyncIoError<PatternReader<R>>;
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        if let Async::Ready((r, b, size)) = self.0.poll().map_err(|e| e.map_state(|(r, _)| r))? {
+            if size == 0 {
+                let total_read_size = b.start();
+                let mut b = b.into_inner();
+                b.truncate(total_read_size);
+                Ok(Async::Ready((r, b)))
+            } else {
+                let mut b = b.skip(size);
+                if b.as_ref().is_empty() {
+                    let new_len = b.end() * 2;
+                    b.inner_mut().resize(new_len, 0);
+                    b = b.set_end(new_len);
+                }
+                self.0 = r.async_read(b);
+                self.poll()
+            }
+        } else {
+            Ok(Async::NotReady)
+        }
+    }
+}
+impl<R: Read> AsyncMatch<PatternReader<R>> for read::All {
+    type Future = ReadAll<R>;
+    fn async_match(self, matcher: PatternReader<R>) -> Self::Future {
+        let b = Window::new(vec![0; 256]);
+        ReadAll(matcher.async_read(b))
+    }
+}
+
+/// A future which will read a UTF-8 string.
+///
+/// This is created by calling `ReadFrom::read_from` method for `Utf8` pattern.
+///
+/// # Examples
+/// ```
+/// use handy_async::io::ReadFrom;
+/// use handy_async::pattern::read::{U8, LengthPrefixedBytes, Utf8};
 ///
 /// let mut input = vec![3];
 /// input.extend_from_slice(b"hello");
 ///
-/// let string = LengthPrefixedStr(U8).sync_read_from(&input[..]).unwrap();
+/// let string = Utf8(LengthPrefixedBytes(U8)).sync_read_from(&input[..]).unwrap();
 /// assert_eq!(string, "hel");
 /// ```
-pub struct ReadLengthPrefixedStr<R: Read, P>(ReadLengthPrefixedBytes<R, P>)
-    where P: AsyncMatch<PatternReader<R>>;
-impl<R: Read, P> Future for ReadLengthPrefixedStr<R, P>
-    where P: AsyncMatch<PatternReader<R>>
+pub struct ReadUtf8<R: Read, P>(P::Future) where P: AsyncMatch<PatternReader<R>>;
+impl<R: Read, P> Future for ReadUtf8<R, P>
+    where P: AsyncMatch<PatternReader<R>>,
+          Vec<u8>: From<P::Value>
 {
     type Item = (PatternReader<R>, String);
     type Error = AsyncIoError<PatternReader<R>>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         if let Async::Ready((m, b)) = self.0.poll()? {
-            match String::from_utf8(b) {
+            match String::from_utf8(Vec::from(b)) {
                 Err(e) => {
                     Err(AsyncIoError::new(m, Error::new(ErrorKind::InvalidData, Box::new(e))))
                 }
@@ -365,13 +411,13 @@ impl<R: Read, P> Future for ReadLengthPrefixedStr<R, P>
         }
     }
 }
-impl<R: Read, P> AsyncMatch<PatternReader<R>> for read::LengthPrefixedStr<P>
+impl<R: Read, P> AsyncMatch<PatternReader<R>> for read::Utf8<P>
     where P: AsyncMatch<PatternReader<R>>,
-          P::Value: TryAsLength
+          Vec<u8>: From<P::Value>
 {
-    type Future = ReadLengthPrefixedStr<R, P>;
+    type Future = ReadUtf8<R, P>;
     fn async_match(self, matcher: PatternReader<R>) -> Self::Future {
-        ReadLengthPrefixedStr(read::LengthPrefixedBytes(self.0).async_match(matcher))
+        ReadUtf8(self.0.async_match(matcher))
     }
 }
 
