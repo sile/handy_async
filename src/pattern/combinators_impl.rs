@@ -226,3 +226,26 @@ impl<P> futures::Stream for Repeat<P>
 pub fn repeat<P>(pattern: P) -> Repeat<P> {
     Repeat(pattern)
 }
+
+/// A pattern which represents the expected value of a pattern matching.
+///
+/// This pattern is created by calling `Pattern::expect_eq` method.
+pub struct Expect<P: Pattern>(P, P::Value);
+impl<P: Pattern> Expect<P> {
+    #[allow(missing_docs)]
+    pub fn unwrap(self) -> (P, P::Value) {
+        (self.0, self.1)
+    }
+}
+impl<P: Pattern> Pattern for Expect<P> {
+    type Value = P::Value;
+}
+pub fn expect<P: Pattern>(pattern: P, expected_value: P::Value) -> Expect<P>
+    where P::Value: PartialEq
+{
+    Expect(pattern, expected_value)
+}
+
+/// An unexpected value.
+#[derive(Debug)]
+pub struct UnexpectedValue<T>(pub T);

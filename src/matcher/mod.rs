@@ -7,7 +7,7 @@ pub mod futures {
     //! Futures used to match commonly used patterns.
     pub use super::async_match::{MatchMap, MatchAndThen, MatchThen, MatchChain};
     pub use super::async_match::{MatchOrElse, MatchOr, MatchOption};
-    pub use super::async_match::{MatchIter, MatchIterFold};
+    pub use super::async_match::{MatchIter, MatchIterFold, MatchExpect};
     pub use super::match_tuple::{MatchTuple3, MatchTuple4, MatchTuple5, MatchTuple6};
     pub use super::match_tuple::{MatchTuple7, MatchTuple8, MatchTuple9, MatchTuple10};
 }

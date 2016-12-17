@@ -1,7 +1,8 @@
 use futures::{self, Poll, Async, Future, Stream};
 
 use pattern::{Pattern, Branch, Iter};
-use pattern::combinators::{Map, AndThen, Then, OrElse, Or, Chain, IterFold};
+use pattern::combinators::{Map, AndThen, Then, OrElse, Or, Chain, IterFold, Expect,
+                           UnexpectedValue};
 use error::AsyncError;
 use super::Matcher;
 
@@ -545,6 +546,41 @@ impl<M: Matcher, I> AsyncMatch<M> for Iter<I>
         } else {
             MatchIter(Phase::B(matcher))
         }
+    }
+}
+
+/// Future to do pattern matching of
+/// [Expect](../../pattern/struct.Expect.html) pattern.
+pub struct MatchExpect<M: Matcher, P>(P::Future, P::Value) where P: AsyncMatch<M>;
+impl<M: Matcher, P> Future for MatchExpect<M, P>
+    where P: AsyncMatch<M>,
+          P::Value: PartialEq,
+          M::Error: From<UnexpectedValue<P::Value>>
+{
+    type Item = (M, P::Value);
+    type Error = AsyncError<M, M::Error>;
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        if let Async::Ready((m, v)) = self.0.poll()? {
+            if v == self.1 {
+                Ok(Async::Ready((m, v)))
+            } else {
+                let e = From::from(UnexpectedValue(v));
+                Err(AsyncError::new(m, e))
+            }
+        } else {
+            Ok(Async::NotReady)
+        }
+    }
+}
+impl<M: Matcher, P> AsyncMatch<M> for Expect<P>
+    where P: AsyncMatch<M>,
+          P::Value: PartialEq,
+          M::Error: From<UnexpectedValue<P::Value>>
+{
+    type Future = MatchExpect<M, P>;
+    fn async_match(self, matcher: M) -> Self::Future {
+        let (pattern, expected_value) = self.unwrap();
+        MatchExpect(pattern.async_match(matcher), expected_value)
     }
 }
 

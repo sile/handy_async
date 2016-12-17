@@ -21,6 +21,8 @@ pub mod combinators {
     pub use super::combinators_impl::LE;
     pub use super::combinators_impl::PartialBuf;
     pub use super::combinators_impl::Repeat;
+    pub use super::combinators_impl::Expect;
+    pub use super::combinators_impl::UnexpectedValue;
 }
 mod combinators_impl;
 
@@ -83,6 +85,26 @@ pub trait Pattern: Sized {
         where Self: Clone
     {
         combinators_impl::repeat(self)
+    }
+
+    /// Takes an expected value and creates a pattern which
+    /// performs a pattern matching and validates that
+    /// the matched value is equal to the expected one.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use handy_async::pattern::Pattern;
+    /// use handy_async::pattern::read::U8;
+    /// use handy_async::io::ReadFrom;
+    ///
+    /// assert!(U8.expect_eq(b'H').sync_read_from(&b"Hello"[..]).is_ok());
+    /// assert!(U8.expect_eq(b'A').sync_read_from(&b"Hello"[..]).is_err());
+    /// ```
+    fn expect_eq(self, expected_value: Self::Value) -> combinators::Expect<Self>
+        where Self::Value: PartialEq
+    {
+        combinators_impl::expect(self, expected_value)
     }
 
     /// Returnes a boxed pattern to match with a matcher `M`.

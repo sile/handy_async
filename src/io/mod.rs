@@ -1,5 +1,6 @@
 //! I/O operation related components.
 use std::io;
+use std::fmt;
 
 pub use self::async_read::AsyncRead;
 pub use self::async_write::AsyncWrite;
@@ -8,6 +9,7 @@ pub use self::write_pattern::{WriteInto, PatternWriter};
 pub use self::external_size::ExternalSize;
 
 use error::AsyncError;
+use pattern::combinators::UnexpectedValue;
 
 pub mod futures {
     //! I/O operation related futures.
@@ -35,3 +37,12 @@ mod external_size;
 
 /// I/O specific asynchronous error type.
 pub type AsyncIoError<T> = AsyncError<T, io::Error>;
+
+impl<T> From<UnexpectedValue<T>> for io::Error
+    where T: fmt::Debug
+{
+    fn from(f: UnexpectedValue<T>) -> Self {
+        io::Error::new(io::ErrorKind::InvalidData,
+                       format!("Unexpected value: {:?}", f.0))
+    }
+}
