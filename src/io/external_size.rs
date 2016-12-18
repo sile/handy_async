@@ -63,9 +63,9 @@ impl<T> ExternalSize for pattern::Window<T> {
         self.end() - self.start()
     }
 }
-impl<T: ExternalSize> ExternalSize for pattern::Buf<T> {
+impl<T: AsRef<[u8]>> ExternalSize for pattern::Buf<T> {
     fn external_size(&self) -> usize {
-        self.0.external_size()
+        self.0.as_ref().len()
     }
 }
 impl<T: ExternalSize> ExternalSize for combinators::BE<T> {
