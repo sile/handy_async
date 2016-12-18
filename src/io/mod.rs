@@ -46,3 +46,40 @@ impl<T> From<UnexpectedValue<T>> for io::Error
                        format!("Unexpected value: {:?}", f.0))
     }
 }
+
+
+/// Stateful I/O stream.
+#[derive(Debug, Clone)]
+pub struct Stateful<S, T> {
+    /// I/O stream.
+    pub stream: S,
+
+    /// State.
+    pub state: T,
+}
+impl<S, T> Stateful<S, T> {
+    /// Maps a `Stateful<S, T>` to `Stateful<T, U>` by
+    /// applying a function `F` to the contained state.
+    pub fn map_state<F, U>(self, f: F) -> Stateful<S, U>
+        where F: FnOnce(T) -> U
+    {
+        let u = f(self.state);
+        Stateful {
+            stream: self.stream,
+            state: u,
+        }
+    }
+}
+impl<S: io::Read, T> io::Read for Stateful<S, T> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.stream.read(buf)
+    }
+}
+impl<S: io::Write, T> io::Write for Stateful<S, T> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.stream.write(buf)
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        self.stream.flush()
+    }
+}
