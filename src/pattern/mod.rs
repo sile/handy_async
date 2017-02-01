@@ -306,7 +306,7 @@ impl<B: AsRef<[u8]>> Window<B> {
     /// Sets end position of the window.
     pub fn set_end(mut self, end: usize) -> Self {
         assert!(end >= self.start);
-        assert!(end <= self.as_ref().len());
+        assert!(end <= self.inner.as_ref().len());
         self.end = end;
         self
     }
