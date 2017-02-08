@@ -12,4 +12,4 @@ license = "MIT"
 
 [dependencies]
 futures = "0.1"
-byteorder = "0.5"
+byteorder = "1"
