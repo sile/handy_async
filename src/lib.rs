@@ -74,3 +74,4 @@ pub mod io;
 pub mod pattern;
 pub mod matcher;
 pub mod error;
+pub mod future;
