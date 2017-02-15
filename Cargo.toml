@@ -1,6 +1,6 @@
 [package]
 name = "handy_async"
-version = "0.2.7"
+version = "0.2.8"
 authors = ["Takeru Ohta <phjgt308@gmail.com>"]
 description = "A handy library for describing asynchronous code declaratively"
 documentation = "https://docs.rs/handy_async"
