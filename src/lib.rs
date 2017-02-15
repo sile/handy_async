@@ -71,6 +71,7 @@ extern crate futures;
 extern crate byteorder;
 
 pub mod io;
+pub mod sync_io;
 pub mod pattern;
 pub mod matcher;
 pub mod error;
