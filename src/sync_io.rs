@@ -1,6 +1,6 @@
 //! Synchronous I/O functionalities.
 
-use std::io::{Result, Read, Write};
+use std::io::{Result, Read, Write, Error, ErrorKind};
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt, WriteBytesExt};
 
 /// An extention of the standard `Read` trait.
@@ -80,6 +80,20 @@ pub trait ReadExt: Read {
     /// Reads a little-endian 64-bit unsigned integer.
     fn read_u64le(&mut self) -> Result<u64> {
         self.read_u64::<LittleEndian>()
+    }
+
+    /// Reads string.
+    fn read_string(&mut self, length: usize) -> Result<String> {
+        let bytes = self.read_bytes(length)?;
+        let string = String::from_utf8(bytes).map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
+        Ok(string)
+    }
+
+    /// Reads bytes.
+    fn read_bytes(&mut self, length: usize) -> Result<Vec<u8>> {
+        let mut buf = vec![0; length];
+        self.read_exact(&mut buf)?;
+        Ok(buf)
     }
 
     /// Reads all string.
