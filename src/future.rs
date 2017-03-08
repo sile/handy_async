@@ -1,5 +1,5 @@
 //! Future related functionalities.
-use futures::{Future, IntoFuture};
+use futures::{Future, IntoFuture, Poll};
 
 /// An extention of the `Future` trait.
 pub trait FutureExt: Future + Sized {
@@ -73,6 +73,36 @@ mod impls {
             }
             self.0 = Some((a, b));
             Ok(Async::NotReady)
+        }
+    }
+}
+
+/// `Future` which can be used to represent phases.
+#[derive(Debug)]
+#[allow(missing_docs)]
+pub enum Phase<A, B = A, C = B, D = C, E = D> {
+    A(A),
+    B(B),
+    C(C),
+    D(D),
+    E(E),
+}
+impl<A, B, C, D, E> Future for Phase<A, B, C, D, E>
+    where A: Future,
+          B: Future,
+          C: Future,
+          D: Future,
+          E: Future
+{
+    type Item = Phase<A::Item, B::Item, C::Item, D::Item, E::Item>;
+    type Error = Phase<A::Error, B::Error, C::Error, D::Error, E::Error>;
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        match *self {
+            Phase::A(ref mut f) => f.poll().map(|v| v.map(Phase::A)).map_err(Phase::A),
+            Phase::B(ref mut f) => f.poll().map(|v| v.map(Phase::B)).map_err(Phase::B),
+            Phase::C(ref mut f) => f.poll().map(|v| v.map(Phase::C)).map_err(Phase::C),
+            Phase::D(ref mut f) => f.poll().map(|v| v.map(Phase::D)).map_err(Phase::D),
+            Phase::E(ref mut f) => f.poll().map(|v| v.map(Phase::E)).map_err(Phase::E),
         }
     }
 }
