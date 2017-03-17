@@ -123,9 +123,10 @@ impl<W: Write, B: AsRef<[u8]>> Future for WriteAll<W, B> {
     type Item = (W, B);
     type Error = AsyncIoError<(W, B)>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        if let Async::Ready((w, b, size)) = self.0
-            .poll()
-            .map_err(|e| e.map_state(|(w, b)| (w, b.into_inner())))? {
+        if let Async::Ready((w, b, size)) =
+            self.0
+                .poll()
+                .map_err(|e| e.map_state(|(w, b)| (w, b.into_inner())))? {
             let b = b.skip(size);
             if b.as_ref().is_empty() {
                 Ok(Async::Ready((w, b.into_inner())))

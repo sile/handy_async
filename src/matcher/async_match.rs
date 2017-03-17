@@ -1,8 +1,8 @@
 use futures::{self, Poll, Async, Future, Stream};
 
 use pattern::{Pattern, Branch, Iter};
-use pattern::combinators::{Map, AndThen, Then, OrElse, Or, Chain, IterFold, Expect,
-                           UnexpectedValue};
+use pattern::combinators::{Map, AndThen, Then, OrElse, Or, Chain};
+use pattern::combinators::{IterFold, Expect, UnexpectedValue};
 use error::AsyncError;
 use super::Matcher;
 
@@ -455,8 +455,8 @@ impl<M, A, B, C, D, E, F, G, H> AsyncMatch<M> for Branch<A, B, C, D, E, F, G, H>
 
 /// Future to do pattern matching of
 /// [IterFold](../../pattern/combinators/struct.IterFold.html) pattern.
-pub struct MatchIterFold<M:Matcher, I, F, T>
-    (Phase<(<I::Item as AsyncMatch<M>>::Future, I, T, F), (M, T)>)
+pub struct MatchIterFold<M: Matcher, I, F, T>(Phase<(<I::Item as AsyncMatch<M>>::Future, I, T, F),
+                                                    (M, T)>)
     where I: Iterator,
           I::Item: AsyncMatch<M>;
 impl<M: Matcher, I, F, T> Future for MatchIterFold<M, I, F, T>
@@ -505,7 +505,7 @@ impl<M: Matcher, I, F, T> AsyncMatch<M> for IterFold<I, F, T>
 
 /// Future to do pattern matching of
 /// [Iter](../../pattern/struct.Iter.html) pattern.
-pub struct MatchIter<M:Matcher, I>(Phase<(<I::Item as AsyncMatch<M>>::Future, I), M>)
+pub struct MatchIter<M: Matcher, I>(Phase<(<I::Item as AsyncMatch<M>>::Future, I), M>)
     where I: Iterator,
           I::Item: AsyncMatch<M>;
 impl<M: Matcher, I> Future for MatchIter<M, I>

@@ -147,9 +147,10 @@ impl<R, B> Future for ReadExact<R, B>
     type Item = (R, B);
     type Error = AsyncIoError<(R, B)>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        if let Async::Ready((r, b, read_size)) = self.0
-            .poll()
-            .map_err(|e| e.map_state(|(r, b)| (r, b.into_inner())))? {
+        if let Async::Ready((r, b, read_size)) =
+            self.0
+                .poll()
+                .map_err(|e| e.map_state(|(r, b)| (r, b.into_inner())))? {
             let mut b = b.skip(read_size);
             if b.as_mut().is_empty() {
                 Ok(Async::Ready((r, b.into_inner())))

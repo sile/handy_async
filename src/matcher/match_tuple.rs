@@ -4,14 +4,14 @@ use error::AsyncError;
 use matcher::{AsyncMatch, Matcher};
 use matcher::futures::MatchChain;
 
-impl<M:Matcher> AsyncMatch<M> for () {
+impl<M: Matcher> AsyncMatch<M> for () {
     type Future = futures::Finished<(M, ()), AsyncError<M, M::Error>>;
     fn async_match(self, matcher: M) -> Self::Future {
         futures::finished((matcher, self))
     }
 }
 
-impl<M:Matcher, P0, P1> AsyncMatch<M> for (P0, P1)
+impl<M: Matcher, P0, P1> AsyncMatch<M> for (P0, P1)
     where P0: AsyncMatch<M>,
           P1: AsyncMatch<M>
 {
@@ -27,12 +27,12 @@ impl<M:Matcher, P0, P1> AsyncMatch<M> for (P0, P1)
 pub struct MatchTuple3<M, A, B, C>(Phase<(A::Future, B, C),
                                          (B::Future, C, A::Value),
                                          (C::Future, A::Value, B::Value)>)
-    where M:Matcher,
+    where M: Matcher,
           A: AsyncMatch<M>,
           B: AsyncMatch<M>,
           C: AsyncMatch<M>;
 impl<M, A, B, C> Future for MatchTuple3<M, A, B, C>
-    where M:Matcher,
+    where M: Matcher,
           A: AsyncMatch<M>,
           B: AsyncMatch<M>,
           C: AsyncMatch<M>
@@ -72,7 +72,7 @@ impl<M, A, B, C> Future for MatchTuple3<M, A, B, C>
     }
 }
 impl<M, A, B, C> AsyncMatch<M> for (A, B, C)
-    where M:Matcher,
+    where M: Matcher,
           A: AsyncMatch<M>,
           B: AsyncMatch<M>,
           C: AsyncMatch<M>
@@ -87,23 +87,23 @@ impl<M, A, B, C> AsyncMatch<M> for (A, B, C)
 /// Future to do pattern matching of
 /// [Tuple4](../../pattern/combinators/type.Tuple4.html) pattern.
 pub struct MatchTuple4<M, A, B, C, D>
-    where M:Matcher,
+    where M: Matcher,
           A: AsyncMatch<M>,
           B: AsyncMatch<M>,
           C: AsyncMatch<M>,
-          D: AsyncMatch<M>,
+          D: AsyncMatch<M>
 {
     p: Phase<(A::Future, B, C, D),
              (B::Future, C, D, A::Value),
              (C::Future, D, A::Value, B::Value),
-             (D::Future, A::Value, B::Value, C::Value)>
+             (D::Future, A::Value, B::Value, C::Value)>,
 }
 impl<M, A, B, C, D> Future for MatchTuple4<M, A, B, C, D>
-    where M:Matcher,
+    where M: Matcher,
           A: AsyncMatch<M>,
           B: AsyncMatch<M>,
           C: AsyncMatch<M>,
-          D: AsyncMatch<M>,
+          D: AsyncMatch<M>
 {
     type Item = (M, (A::Value, B::Value, C::Value, D::Value));
     type Error = AsyncError<M, M::Error>;
@@ -149,11 +149,11 @@ impl<M, A, B, C, D> Future for MatchTuple4<M, A, B, C, D>
     }
 }
 impl<M, A, B, C, D> AsyncMatch<M> for (A, B, C, D)
-    where M:Matcher,
+    where M: Matcher,
           A: AsyncMatch<M>,
           B: AsyncMatch<M>,
           C: AsyncMatch<M>,
-          D: AsyncMatch<M>,
+          D: AsyncMatch<M>
 {
     type Future = MatchTuple4<M, A, B, C, D>;
     fn async_match(self, matcher: M) -> Self::Future {
@@ -165,25 +165,26 @@ impl<M, A, B, C, D> AsyncMatch<M> for (A, B, C, D)
 /// Future to do pattern matching of
 /// [Tuple5](../../pattern/combinators/type.Tuple5.html) pattern.
 pub struct MatchTuple5<M, A, B, C, D, E>
-    where M:Matcher,
+    where M: Matcher,
           A: AsyncMatch<M>,
           B: AsyncMatch<M>,
           C: AsyncMatch<M>,
           D: AsyncMatch<M>,
-          E: AsyncMatch<M>,
+          E: AsyncMatch<M>
 {
     p: Phase<(A::Future, B, C, D, E),
              (B::Future, C, D, E, A::Value),
              (C::Future, D, E, A::Value, B::Value),
              (D::Future, E, A::Value, B::Value, C::Value),
-             (E::Future, A::Value, B::Value, C::Value, D::Value)>
+             (E::Future, A::Value, B::Value, C::Value, D::Value)>,
 }
 impl<M, A, B, C, D, E> Future for MatchTuple5<M, A, B, C, D, E>
-    where M:Matcher, A: AsyncMatch<M>,
+    where M: Matcher,
+          A: AsyncMatch<M>,
           B: AsyncMatch<M>,
           C: AsyncMatch<M>,
           D: AsyncMatch<M>,
-          E: AsyncMatch<M>,
+          E: AsyncMatch<M>
 {
     type Item = (M, (A::Value, B::Value, C::Value, D::Value, E::Value));
     type Error = AsyncError<M, M::Error>;
@@ -238,11 +239,12 @@ impl<M, A, B, C, D, E> Future for MatchTuple5<M, A, B, C, D, E>
     }
 }
 impl<M, A, B, C, D, E> AsyncMatch<M> for (A, B, C, D, E)
-    where M:Matcher, A: AsyncMatch<M>,
+    where M: Matcher,
+          A: AsyncMatch<M>,
           B: AsyncMatch<M>,
           C: AsyncMatch<M>,
           D: AsyncMatch<M>,
-          E: AsyncMatch<M>,
+          E: AsyncMatch<M>
 {
     type Future = MatchTuple5<M, A, B, C, D, E>;
     fn async_match(self, matcher: M) -> Self::Future {
@@ -254,30 +256,31 @@ impl<M, A, B, C, D, E> AsyncMatch<M> for (A, B, C, D, E)
 /// Future to do pattern matching of
 /// [Tuple6](../../pattern/combinators/type.Tuple6.html) pattern.
 pub struct MatchTuple6<M, A, B, C, D, E, F>
-    where M:Matcher, A: AsyncMatch<M>,
+    where M: Matcher,
+          A: AsyncMatch<M>,
           B: AsyncMatch<M>,
           C: AsyncMatch<M>,
           D: AsyncMatch<M>,
           E: AsyncMatch<M>,
-          F: AsyncMatch<M>,
+          F: AsyncMatch<M>
 {
     p: Phase<(A::Future, B, C, D, E, F),
              (B::Future, C, D, E, F, A::Value),
              (C::Future, D, E, F, A::Value, B::Value),
              (D::Future, E, F, A::Value, B::Value, C::Value),
              (E::Future, F, A::Value, B::Value, C::Value, D::Value),
-             (F::Future, A::Value, B::Value, C::Value, D::Value, E::Value)>
+             (F::Future, A::Value, B::Value, C::Value, D::Value, E::Value)>,
 }
 impl<M, A, B, C, D, E, F> Future for MatchTuple6<M, A, B, C, D, E, F>
-    where M:Matcher, A: AsyncMatch<M>,
+    where M: Matcher,
+          A: AsyncMatch<M>,
           B: AsyncMatch<M>,
           C: AsyncMatch<M>,
           D: AsyncMatch<M>,
           E: AsyncMatch<M>,
-          F: AsyncMatch<M>,
+          F: AsyncMatch<M>
 {
-    type Item = (M,
-     (A::Value, B::Value, C::Value, D::Value, E::Value, F::Value));
+    type Item = (M, (A::Value, B::Value, C::Value, D::Value, E::Value, F::Value));
     type Error = AsyncError<M, M::Error>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.p.take() {
@@ -339,12 +342,13 @@ impl<M, A, B, C, D, E, F> Future for MatchTuple6<M, A, B, C, D, E, F>
     }
 }
 impl<M, A, B, C, D, E, F> AsyncMatch<M> for (A, B, C, D, E, F)
-    where M:Matcher, A: AsyncMatch<M>,
+    where M: Matcher,
+          A: AsyncMatch<M>,
           B: AsyncMatch<M>,
           C: AsyncMatch<M>,
           D: AsyncMatch<M>,
           E: AsyncMatch<M>,
-          F: AsyncMatch<M>,
+          F: AsyncMatch<M>
 {
     type Future = MatchTuple6<M, A, B, C, D, E, F>;
     fn async_match(self, matcher: M) -> Self::Future {
@@ -356,13 +360,14 @@ impl<M, A, B, C, D, E, F> AsyncMatch<M> for (A, B, C, D, E, F)
 /// Future to do pattern matching of
 /// [Tuple7](../../pattern/combinators/type.Tuple7.html) pattern.
 pub struct MatchTuple7<M, A, B, C, D, E, F, G>
-    where M:Matcher, A: AsyncMatch<M>,
+    where M: Matcher,
+          A: AsyncMatch<M>,
           B: AsyncMatch<M>,
           C: AsyncMatch<M>,
           D: AsyncMatch<M>,
           E: AsyncMatch<M>,
           F: AsyncMatch<M>,
-          G: AsyncMatch<M>,
+          G: AsyncMatch<M>
 {
     p: Phase<(A::Future, B, C, D, E, F, G),
              (B::Future, C, D, E, F, G, A::Value),
@@ -370,19 +375,19 @@ pub struct MatchTuple7<M, A, B, C, D, E, F, G>
              (D::Future, E, F, G, A::Value, B::Value, C::Value),
              (E::Future, F, G, A::Value, B::Value, C::Value, D::Value),
              (F::Future, G, A::Value, B::Value, C::Value, D::Value, E::Value),
-             (G::Future, A::Value, B::Value, C::Value, D::Value, E::Value, F::Value)>
+             (G::Future, A::Value, B::Value, C::Value, D::Value, E::Value, F::Value)>,
 }
 impl<M, A, B, C, D, E, F, G> Future for MatchTuple7<M, A, B, C, D, E, F, G>
-    where M:Matcher, A: AsyncMatch<M>,
+    where M: Matcher,
+          A: AsyncMatch<M>,
           B: AsyncMatch<M>,
           C: AsyncMatch<M>,
           D: AsyncMatch<M>,
           E: AsyncMatch<M>,
           F: AsyncMatch<M>,
-          G: AsyncMatch<M>,
+          G: AsyncMatch<M>
 {
-    type Item = (M,
-     (A::Value, B::Value, C::Value, D::Value, E::Value, F::Value, G::Value));
+    type Item = (M, (A::Value, B::Value, C::Value, D::Value, E::Value, F::Value, G::Value));
     type Error = AsyncError<M, M::Error>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.p.take() {
@@ -453,13 +458,14 @@ impl<M, A, B, C, D, E, F, G> Future for MatchTuple7<M, A, B, C, D, E, F, G>
     }
 }
 impl<M, A, B, C, D, E, F, G> AsyncMatch<M> for (A, B, C, D, E, F, G)
-    where M:Matcher, A: AsyncMatch<M>,
+    where M: Matcher,
+          A: AsyncMatch<M>,
           B: AsyncMatch<M>,
           C: AsyncMatch<M>,
           D: AsyncMatch<M>,
           E: AsyncMatch<M>,
           F: AsyncMatch<M>,
-          G: AsyncMatch<M>,
+          G: AsyncMatch<M>
 {
     type Future = MatchTuple7<M, A, B, C, D, E, F, G>;
     fn async_match(self, matcher: M) -> Self::Future {
@@ -471,14 +477,15 @@ impl<M, A, B, C, D, E, F, G> AsyncMatch<M> for (A, B, C, D, E, F, G)
 /// Future to do pattern matching of
 /// [Tuple8](../../pattern/combinators/type.Tuple8.html) pattern.
 pub struct MatchTuple8<M, A, B, C, D, E, F, G, H>
-    where M:Matcher, A: AsyncMatch<M>,
+    where M: Matcher,
+          A: AsyncMatch<M>,
           B: AsyncMatch<M>,
           C: AsyncMatch<M>,
           D: AsyncMatch<M>,
           E: AsyncMatch<M>,
           F: AsyncMatch<M>,
           G: AsyncMatch<M>,
-          H: AsyncMatch<M>,
+          H: AsyncMatch<M>
 {
     p: Phase<(A::Future, B, C, D, E, F, G, H),
              (B::Future, C, D, E, F, G, H, A::Value),
@@ -487,10 +494,11 @@ pub struct MatchTuple8<M, A, B, C, D, E, F, G, H>
              (E::Future, F, G, H, A::Value, B::Value, C::Value, D::Value),
              (F::Future, G, H, A::Value, B::Value, C::Value, D::Value, E::Value),
              (G::Future, H, A::Value, B::Value, C::Value, D::Value, E::Value, F::Value),
-             (H::Future, A::Value, B::Value, C::Value, D::Value, E::Value, F::Value, G::Value)>
+             (H::Future, A::Value, B::Value, C::Value, D::Value, E::Value, F::Value, G::Value)>,
 }
 impl<M, A, B, C, D, E, F, G, H> Future for MatchTuple8<M, A, B, C, D, E, F, G, H>
-    where M:Matcher, A: AsyncMatch<M>,
+    where M: Matcher,
+          A: AsyncMatch<M>,
           B: AsyncMatch<M>,
           C: AsyncMatch<M>,
           D: AsyncMatch<M>,
@@ -500,7 +508,14 @@ impl<M, A, B, C, D, E, F, G, H> Future for MatchTuple8<M, A, B, C, D, E, F, G, H
           H: AsyncMatch<M>
 {
     type Item = (M,
-                 (A::Value, B::Value, C::Value, D::Value, E::Value, F::Value, G::Value, H::Value));
+     (A::Value, // NOTE: comment for `rustfmt`
+      B::Value,
+      C::Value,
+      D::Value,
+      E::Value,
+      F::Value,
+      G::Value,
+      H::Value));
     type Error = AsyncError<M, M::Error>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.p.take() {
@@ -580,7 +595,8 @@ impl<M, A, B, C, D, E, F, G, H> Future for MatchTuple8<M, A, B, C, D, E, F, G, H
     }
 }
 impl<M, A, B, C, D, E, F, G, H> AsyncMatch<M> for (A, B, C, D, E, F, G, H)
-    where M:Matcher, A: AsyncMatch<M>,
+    where M: Matcher,
+          A: AsyncMatch<M>,
           B: AsyncMatch<M>,
           C: AsyncMatch<M>,
           D: AsyncMatch<M>,
@@ -599,7 +615,8 @@ impl<M, A, B, C, D, E, F, G, H> AsyncMatch<M> for (A, B, C, D, E, F, G, H)
 /// Future to do pattern matching of
 /// [Tuple9](../../pattern/combinators/type.Tuple9.html) pattern.
 pub struct MatchTuple9<M, A, B, C, D, E, F, G, H, I>
-    where M:Matcher, A: AsyncMatch<M>,
+    where M: Matcher,
+          A: AsyncMatch<M>,
           B: AsyncMatch<M>,
           C: AsyncMatch<M>,
           D: AsyncMatch<M>,
@@ -628,7 +645,8 @@ pub struct MatchTuple9<M, A, B, C, D, E, F, G, H, I>
               H::Value)>,
 }
 impl<M, A, B, C, D, E, F, G, H, I> Future for MatchTuple9<M, A, B, C, D, E, F, G, H, I>
-    where M:Matcher, A: AsyncMatch<M>,
+    where M: Matcher,
+          A: AsyncMatch<M>,
           B: AsyncMatch<M>,
           C: AsyncMatch<M>,
           D: AsyncMatch<M>,
@@ -639,7 +657,15 @@ impl<M, A, B, C, D, E, F, G, H, I> Future for MatchTuple9<M, A, B, C, D, E, F, G
           I: AsyncMatch<M>
 {
     type Item = (M,
-     (A::Value, B::Value, C::Value, D::Value, E::Value, F::Value, G::Value, H::Value, I::Value));
+     (A::Value,
+      B::Value,
+      C::Value,
+      D::Value,
+      E::Value,
+      F::Value,
+      G::Value,
+      H::Value,
+      I::Value));
     type Error = AsyncError<M, M::Error>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.p.take() {
@@ -728,7 +754,8 @@ impl<M, A, B, C, D, E, F, G, H, I> Future for MatchTuple9<M, A, B, C, D, E, F, G
     }
 }
 impl<M, A, B, C, D, E, F, G, H, I> AsyncMatch<M> for (A, B, C, D, E, F, G, H, I)
-    where M:Matcher, A: AsyncMatch<M>,
+    where M: Matcher,
+          A: AsyncMatch<M>,
           B: AsyncMatch<M>,
           C: AsyncMatch<M>,
           D: AsyncMatch<M>,
@@ -748,7 +775,8 @@ impl<M, A, B, C, D, E, F, G, H, I> AsyncMatch<M> for (A, B, C, D, E, F, G, H, I)
 /// Future to do pattern matching of
 /// [Tuple10](../../pattern/combinators/type.Tuple10.html) pattern.
 pub struct MatchTuple10<M, A, B, C, D, E, F, G, H, I, J>
-    where M:Matcher, A: AsyncMatch<M>,
+    where M: Matcher,
+          A: AsyncMatch<M>,
           B: AsyncMatch<M>,
           C: AsyncMatch<M>,
           D: AsyncMatch<M>,
@@ -797,9 +825,9 @@ pub struct MatchTuple10<M, A, B, C, D, E, F, G, H, I, J>
               H::Value,
               I::Value)>,
 }
-impl<M, A, B, C, D, E, F, G, H, I, J> Future
-    for MatchTuple10<M, A, B, C, D, E, F, G, H, I, J>
-    where M:Matcher, A: AsyncMatch<M>,
+impl<M, A, B, C, D, E, F, G, H, I, J> Future for MatchTuple10<M, A, B, C, D, E, F, G, H, I, J>
+    where M: Matcher,
+          A: AsyncMatch<M>,
           B: AsyncMatch<M>,
           C: AsyncMatch<M>,
           D: AsyncMatch<M>,
@@ -918,7 +946,8 @@ impl<M, A, B, C, D, E, F, G, H, I, J> Future
     }
 }
 impl<M, A, B, C, D, E, F, G, H, I, J> AsyncMatch<M> for (A, B, C, D, E, F, G, H, I, J)
-    where M:Matcher, A: AsyncMatch<M>,
+    where M: Matcher,
+          A: AsyncMatch<M>,
           B: AsyncMatch<M>,
           C: AsyncMatch<M>,
           D: AsyncMatch<M>,

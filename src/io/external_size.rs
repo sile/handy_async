@@ -47,7 +47,10 @@ impl<T> ExternalSize for pattern::Iter<T>
           T::Item: ExternalSize
 {
     fn external_size(&self) -> usize {
-        self.0.clone().map(|t| t.external_size()).sum()
+        self.0
+            .clone()
+            .map(|t| t.external_size())
+            .sum()
     }
 }
 impl<I, F, T> ExternalSize for combinators::IterFold<I, F, T>
@@ -55,7 +58,10 @@ impl<I, F, T> ExternalSize for combinators::IterFold<I, F, T>
           I::Item: ExternalSize
 {
     fn external_size(&self) -> usize {
-        self.iter_ref().clone().map(|t| t.external_size()).sum()
+        self.iter_ref()
+            .clone()
+            .map(|t| t.external_size())
+            .sum()
     }
 }
 impl<T> ExternalSize for pattern::Window<T> {
@@ -232,8 +238,8 @@ impl<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9> ExternalSize
     fn external_size(&self) -> usize {
         self.0.external_size() + self.1.external_size() + self.2.external_size() +
         self.3.external_size() + self.4.external_size() + self.5.external_size() +
-        self.6.external_size() + self.7.external_size() + self.8.external_size() +
-        self.9.external_size()
+        self.6.external_size() +
+        self.7.external_size() + self.8.external_size() + self.9.external_size()
     }
 }
 impl ExternalSize for write::Flush {
