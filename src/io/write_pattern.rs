@@ -2,9 +2,9 @@ use std::io::{Write, Result, Error};
 use futures::{Poll, Future};
 use byteorder::{ByteOrder, NativeEndian, BigEndian, LittleEndian};
 
-use pattern::{Pattern, Buf, Window};
+use pattern::{Buf, Window};
 use pattern::write::{self, U24, I24, U40, I40, U48, I48, U56, I56};
-use pattern::combinators::{self, PartialBuf, LE, BE};
+use pattern::combinators::{PartialBuf, LE, BE};
 use matcher::{AsyncMatch, Matcher};
 use io::{AsyncWrite, AsyncIoError};
 
@@ -230,17 +230,32 @@ impl<W: Write, B: AsRef<[u8]>> AsyncMatch<PatternWriter<W>> for PartialBuf<B> {
 }
 
 /// A future which will write a fixnum associated with `P` into `W`.
-pub type WriteFixnum<W, P, T> where P: Pattern =
-    <combinators::Map<P, fn (P::Value) -> T> as AsyncMatch<PatternWriter<W>>>::Future;
+pub struct WriteFixnum<W, P>
+    where P: AsyncMatch<PatternWriter<W>>
+{
+    future: P::Future,
+}
+impl<W: Write, P> Future for WriteFixnum<W, P>
+    where P: AsyncMatch<PatternWriter<W>>
+{
+    type Item = (PatternWriter<W>, ());
+    type Error = AsyncIoError<PatternWriter<W>>;
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        Ok(self.future
+               .poll()?
+               .map(|(w, _)| (w, ())))
+    }
+}
+
 macro_rules! impl_write_fixnum_pattern {
     ($pat:ty, $size:expr, $conv:expr) => {
         impl<W: Write> AsyncMatch<PatternWriter<W>> for $pat {
-            type Future = WriteFixnum<W, Buf<[u8; $size]>, ()>;
+            type Future = WriteFixnum<W, Buf<[u8; $size]>>;
             fn async_match(self, matcher: PatternWriter<W>) -> Self::Future {
-                fn null(_: [u8; $size]) -> () { ()}
                 let mut buf = [0; $size];
                 $conv(&mut buf[..], self);
-                Buf(buf).map(null as _).async_match(matcher)
+                let future = Buf(buf).async_match(matcher);
+                WriteFixnum{future: future}
             }
         }
     }

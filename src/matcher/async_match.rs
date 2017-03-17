@@ -411,22 +411,57 @@ impl<M: Matcher, T> AsyncMatch<M> for Result<T, M::Error> {
 
 /// Future to do pattern matching of
 /// [Branch](../../pattern/struct.Branch.html) pattern.
-pub type MatchBranch<M, A, B, C, D, E, F, G, H>
-    where A: AsyncMatch<M>,
+pub struct MatchBranch<M, A, B, C, D, E, F, G, H>
+    where M: Matcher,
+          A: AsyncMatch<M>,
           B: AsyncMatch<M, Value = A::Value>,
           C: AsyncMatch<M, Value = A::Value>,
           D: AsyncMatch<M, Value = A::Value>,
           E: AsyncMatch<M, Value = A::Value>,
           F: AsyncMatch<M, Value = A::Value>,
           G: AsyncMatch<M, Value = A::Value>,
-          H: AsyncMatch<M, Value = A::Value> = Branch<A::Future,
-                                                      B::Future,
-                                                      C::Future,
-                                                      D::Future,
-                                                      E::Future,
-                                                      F::Future,
-                                                      G::Future,
-                                                      H::Future>;
+          H: AsyncMatch<M, Value = A::Value>
+{
+    future: Branch<A::Future,
+                   B::Future,
+                   C::Future,
+                   D::Future,
+                   E::Future,
+                   F::Future,
+                   G::Future,
+                   H::Future>,
+}
+impl<M, A, B, C, D, E, F, G, H> Future for MatchBranch<M, A, B, C, D, E, F, G, H>
+    where M: Matcher,
+          A: AsyncMatch<M>,
+          B: AsyncMatch<M, Value = A::Value>,
+          C: AsyncMatch<M, Value = A::Value>,
+          D: AsyncMatch<M, Value = A::Value>,
+          E: AsyncMatch<M, Value = A::Value>,
+          F: AsyncMatch<M, Value = A::Value>,
+          G: AsyncMatch<M, Value = A::Value>,
+          H: AsyncMatch<M, Value = A::Value>
+{
+    type Item = <Branch<A::Future,
+           B::Future,
+           C::Future,
+           D::Future,
+           E::Future,
+           F::Future,
+           G::Future,
+           H::Future> as Future>::Item;
+    type Error = <Branch<A::Future,
+           B::Future,
+           C::Future,
+           D::Future,
+           E::Future,
+           F::Future,
+           G::Future,
+           H::Future> as Future>::Error;
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        self.future.poll()
+    }
+}
 impl<M, A, B, C, D, E, F, G, H> AsyncMatch<M> for Branch<A, B, C, D, E, F, G, H>
     where M: Matcher,
           A: AsyncMatch<M>,
@@ -440,7 +475,7 @@ impl<M, A, B, C, D, E, F, G, H> AsyncMatch<M> for Branch<A, B, C, D, E, F, G, H>
 {
     type Future = MatchBranch<M, A, B, C, D, E, F, G, H>;
     fn async_match(self, matcher: M) -> Self::Future {
-        match self {
+        let future = match self {
             Branch::A(p) => Branch::A(p.async_match(matcher)),
             Branch::B(p) => Branch::B(p.async_match(matcher)),
             Branch::C(p) => Branch::C(p.async_match(matcher)),
@@ -449,7 +484,8 @@ impl<M, A, B, C, D, E, F, G, H> AsyncMatch<M> for Branch<A, B, C, D, E, F, G, H>
             Branch::F(p) => Branch::F(p.async_match(matcher)),
             Branch::G(p) => Branch::G(p.async_match(matcher)),
             Branch::H(p) => Branch::H(p.async_match(matcher)),
-        }
+        };
+        MatchBranch { future: future }
     }
 }
 

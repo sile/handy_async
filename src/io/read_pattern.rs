@@ -5,7 +5,7 @@ use byteorder::{ByteOrder, NativeEndian, BigEndian, LittleEndian};
 
 use io::AsyncRead;
 use io::futures::{ReadBytes, ReadExact, ReadNonEmpty};
-use pattern::{Pattern, Buf, Window, TryAsLength, Branch};
+use pattern::{Buf, Window, TryAsLength, Branch};
 use pattern::read;
 use pattern::combinators::{self, BE, LE, PartialBuf};
 use matcher::{AsyncMatch, Matcher};
@@ -441,10 +441,21 @@ impl<R: Read, P> AsyncMatch<PatternReader<R>> for read::Utf8<P>
 
 /// A future which will read a fixnum associated with `P` from `R`.
 pub struct ReadFixnum<R, P, T>
-    where P: Pattern
+    where P: AsyncMatch<PatternReader<R>>
 {
-    future: AsyncMatch<PatternReader<R>>::Future,
+    future: P::Future,
     convert: fn(P::Value) -> T,
+}
+impl<R: Read, P, T> Future for ReadFixnum<R, P, T>
+    where P: AsyncMatch<PatternReader<R>>
+{
+    type Item = (PatternReader<R>, T);
+    type Error = AsyncIoError<PatternReader<R>>;
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        Ok(self.future
+               .poll()?
+               .map(|(r, v)| (r, (self.convert)(v))))
+    }
 }
 
 macro_rules! impl_read_fixnum_pattern {
@@ -455,7 +466,8 @@ macro_rules! impl_read_fixnum_pattern {
                 fn conv(b: [u8; $size]) -> $val {
                     $conv(&b[..]) as $val
                 }
-                Buf([0; $size]).map(conv as _).async_match(matcher)
+                let future = Buf([0; $size]).async_match(matcher);
+                ReadFixnum{future: future, convert: conv}
             }
         }
     }
