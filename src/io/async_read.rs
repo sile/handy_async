@@ -149,20 +149,18 @@ where
     type Item = (R, B);
     type Error = AsyncIoError<(R, B)>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        if let Async::Ready((r, b, read_size)) =
+        while let Async::Ready((r, b, read_size)) =
             self.0.poll().map_err(
                 |e| e.map_state(|(r, b)| (r, b.into_inner())),
             )?
         {
             let mut b = b.skip(read_size);
             if b.as_mut().is_empty() {
-                Ok(Async::Ready((r, b.into_inner())))
+                return Ok(Async::Ready((r, b.into_inner())));
             } else {
                 self.0 = r.async_read_non_empty(b);
-                self.poll()
             }
-        } else {
-            Ok(Async::NotReady)
         }
+        Ok(Async::NotReady)
     }
 }

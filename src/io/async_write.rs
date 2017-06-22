@@ -123,27 +123,25 @@ impl<W: Write, B: AsRef<[u8]>> Future for WriteAll<W, B> {
     type Item = (W, B);
     type Error = AsyncIoError<(W, B)>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        if let Async::Ready((w, b, size)) =
+        while let Async::Ready((w, b, size)) =
             self.0.poll().map_err(
                 |e| e.map_state(|(w, b)| (w, b.into_inner())),
             )?
         {
             let b = b.skip(size);
             if b.as_ref().is_empty() {
-                Ok(Async::Ready((w, b.into_inner())))
+                return Ok(Async::Ready((w, b.into_inner())));
             } else if size == 0 {
                 let e = Error::new(
                     ErrorKind::UnexpectedEof,
                     format!("Unexpected EOF (remaining {} bytes", b.as_ref().len()),
                 );
-                Err(AsyncIoError::new((w, b.into_inner()), e))
+                return Err(AsyncIoError::new((w, b.into_inner()), e));
             } else {
                 self.0 = w.async_write(b);
-                self.poll()
             }
-        } else {
-            Ok(Async::NotReady)
         }
+        Ok(Async::NotReady)
     }
 }
 

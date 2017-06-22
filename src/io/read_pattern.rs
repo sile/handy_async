@@ -375,12 +375,12 @@ impl<R: Read> Future for ReadAll<R> {
     type Item = (PatternReader<R>, Vec<u8>);
     type Error = AsyncIoError<PatternReader<R>>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        if let Async::Ready((r, b, size)) = self.0.poll().map_err(|e| e.map_state(|(r, _)| r))? {
+        while let Async::Ready((r, b, size)) = self.0.poll().map_err(|e| e.map_state(|(r, _)| r))? {
             if size == 0 {
                 let total_read_size = b.start();
                 let mut b = b.into_inner();
                 b.truncate(total_read_size);
-                Ok(Async::Ready((r, b)))
+                return Ok(Async::Ready((r, b)));
             } else {
                 let mut b = b.skip(size);
                 if b.as_ref().is_empty() {
@@ -389,11 +389,9 @@ impl<R: Read> Future for ReadAll<R> {
                     b = b.set_end(new_len);
                 }
                 self.0 = r.async_read(b);
-                self.poll()
             }
-        } else {
-            Ok(Async::NotReady)
         }
+        Ok(Async::NotReady)
     }
 }
 impl<R: Read> AsyncMatch<PatternReader<R>> for read::All {
