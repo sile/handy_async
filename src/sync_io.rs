@@ -85,7 +85,9 @@ pub trait ReadExt: Read {
     /// Reads string.
     fn read_string(&mut self, length: usize) -> Result<String> {
         let bytes = self.read_bytes(length)?;
-        let string = String::from_utf8(bytes).map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
+        let string = String::from_utf8(bytes).map_err(|e| {
+            Error::new(ErrorKind::InvalidData, e)
+        })?;
         Ok(string)
     }
 

@@ -34,7 +34,8 @@ pub trait Pattern: Sized {
     /// Takes a closure which maps a `Result<Self::Value>` to a pattern, and
     /// creates a pattern which calls that closure on the evaluation result of `self`.
     fn then<F, P, E>(self, f: F) -> combinators::Then<Self, F, E>
-        where F: FnOnce(Result<Self::Value, E>) -> P
+    where
+        F: FnOnce(Result<Self::Value, E>) -> P,
     {
         combinators_impl::then(self, f)
     }
@@ -42,7 +43,8 @@ pub trait Pattern: Sized {
     /// Takes a closure which maps a value to a pattern, and
     /// creates a pattern which calls that closure if the evaluation of `self` was succeeded.
     fn and_then<F, P>(self, f: F) -> combinators::AndThen<Self, F>
-        where F: FnOnce(Self::Value) -> P
+    where
+        F: FnOnce(Self::Value) -> P,
     {
         combinators_impl::and_then(self, f)
     }
@@ -50,14 +52,16 @@ pub trait Pattern: Sized {
     /// Takes a closure which maps an error to a pattern, and
     /// creates a pattern which calls that closure if the evaluation of `self` failed.
     fn or_else<F, P, E>(self, f: F) -> combinators::OrElse<Self, F, E>
-        where F: FnOnce(E) -> P
+    where
+        F: FnOnce(E) -> P,
     {
         combinators_impl::or_else(self, f)
     }
 
     /// Takes a pattern `other` which will be used if the evaluation of `self` is failed.
     fn or<P>(self, other: P) -> combinators::Or<Self, P>
-        where P: Pattern<Value = Self::Value>
+    where
+        P: Pattern<Value = Self::Value>,
     {
         combinators_impl::or(self, other)
     }
@@ -65,7 +69,8 @@ pub trait Pattern: Sized {
     /// Takes a closure which maps a value to another value, and
     /// creates a pattern which calls that closure on the evaluated value of `self`.
     fn map<F, T>(self, f: F) -> combinators::Map<Self, F>
-        where F: FnOnce(Self::Value) -> T
+    where
+        F: FnOnce(Self::Value) -> T,
     {
         combinators_impl::map(self, f)
     }
@@ -75,14 +80,16 @@ pub trait Pattern: Sized {
     /// In generally, using the tuple pattern `(self, P)` is more convenient way to
     /// achieve the same effect.
     fn chain<P>(self, other: P) -> combinators::Chain<Self, P>
-        where P: Pattern
+    where
+        P: Pattern,
     {
         combinators_impl::chain(self, other)
     }
 
     /// Creates `Repeat` pattern to represent an infinite stream of this pattern.
     fn repeat(self) -> combinators::Repeat<Self>
-        where Self: Clone
+    where
+        Self: Clone,
     {
         combinators_impl::repeat(self)
     }
@@ -102,15 +109,17 @@ pub trait Pattern: Sized {
     /// assert!(U8.expect_eq(b'A').sync_read_from(&b"Hello"[..]).is_err());
     /// ```
     fn expect_eq(self, expected_value: Self::Value) -> combinators::Expect<Self>
-        where Self::Value: PartialEq
+    where
+        Self::Value: PartialEq,
     {
         combinators_impl::expect(self, expected_value)
     }
 
     /// Returnes a boxed pattern to match with a matcher `M`.
     fn boxed<M: Matcher>(self) -> BoxPattern<M, Self::Value>
-        where Self: AsyncMatch<M> + 'static,
-              Self::Future: Send + 'static
+    where
+        Self: AsyncMatch<M> + 'static,
+        Self::Future: Send + 'static,
     {
         let mut f = Some(move |matcher: M| self.async_match(matcher).boxed());
         BoxPattern(Box::new(move |matcher| (f.take().unwrap())(matcher)))
@@ -133,20 +142,23 @@ impl<M: Matcher, T> AsyncMatch<M> for BoxPattern<M, T> {
 #[derive(Debug)]
 pub struct Iter<I>(pub I);
 impl<I, P> Iter<I>
-    where I: Iterator<Item = P>,
-          P: Pattern
+where
+    I: Iterator<Item = P>,
+    P: Pattern,
 {
     /// Creates `IterFold` combinator to fold the values of
     /// the patterns contained in the iterator `I`.
     pub fn fold<F, T>(self, init: T, f: F) -> combinators::IterFold<I, F, T>
-        where F: Fn(T, P::Value) -> T
+    where
+        F: Fn(T, P::Value) -> T,
     {
         combinators_impl::iter_fold(self.0, f, init)
     }
 }
 impl<I, P> Pattern for Iter<I>
-    where I: Iterator<Item = P>,
-          P: Pattern
+where
+    I: Iterator<Item = P>,
+    P: Pattern,
 {
     type Value = ();
 }
@@ -161,7 +173,8 @@ impl<I, P> Pattern for Iter<I>
 /// This is defined only for documenting purpose.
 pub type Option<T> = ::std::option::Option<T>;
 impl<P> Pattern for Option<P>
-    where P: Pattern
+where
+    P: Pattern,
 {
     type Value = Option<P::Value>;
 }
@@ -206,26 +219,49 @@ pub enum Branch<A, B = A, C = A, D = A, E = A, F = A, G = A, H = A> {
     H(H),
 }
 impl<A, B, C, D, E, F, G, H> Pattern for Branch<A, B, C, D, E, F, G, H>
-    where A: Pattern,
-          B: Pattern<Value = A::Value>,
-          C: Pattern<Value = A::Value>,
-          D: Pattern<Value = A::Value>,
-          E: Pattern<Value = A::Value>,
-          F: Pattern<Value = A::Value>,
-          G: Pattern<Value = A::Value>,
-          H: Pattern<Value = A::Value>
+where
+    A: Pattern,
+    B: Pattern<Value = A::Value>,
+    C: Pattern<Value = A::Value>,
+    D: Pattern<Value = A::Value>,
+    E: Pattern<Value = A::Value>,
+    F: Pattern<Value = A::Value>,
+    G: Pattern<Value = A::Value>,
+    H: Pattern<Value = A::Value>,
 {
     type Value = A::Value;
 }
 impl<A, B, C, D, E, F, G, H> Future for Branch<A, B, C, D, E, F, G, H>
-    where A: Future,
-          B: Future<Item = A::Item, Error = A::Error>,
-          C: Future<Item = A::Item, Error = A::Error>,
-          D: Future<Item = A::Item, Error = A::Error>,
-          E: Future<Item = A::Item, Error = A::Error>,
-          F: Future<Item = A::Item, Error = A::Error>,
-          G: Future<Item = A::Item, Error = A::Error>,
-          H: Future<Item = A::Item, Error = A::Error>
+where
+    A: Future,
+    B: Future<
+        Item = A::Item,
+        Error = A::Error,
+    >,
+    C: Future<
+        Item = A::Item,
+        Error = A::Error,
+    >,
+    D: Future<
+        Item = A::Item,
+        Error = A::Error,
+    >,
+    E: Future<
+        Item = A::Item,
+        Error = A::Error,
+    >,
+    F: Future<
+        Item = A::Item,
+        Error = A::Error,
+    >,
+    G: Future<
+        Item = A::Item,
+        Error = A::Error,
+    >,
+    H: Future<
+        Item = A::Item,
+        Error = A::Error,
+    >,
 {
     type Item = A::Item;
     type Error = A::Error;

@@ -17,9 +17,10 @@ impl<P, F, E> Then<P, F, E> {
     }
 }
 impl<P0, P1, F, E> Pattern for Then<P0, F, E>
-    where P0: Pattern,
-          P1: Pattern,
-          F: FnOnce(Result<P0::Value, E>) -> P1
+where
+    P0: Pattern,
+    P1: Pattern,
+    F: FnOnce(Result<P0::Value, E>) -> P1,
 {
     type Value = P1::Value;
 }
@@ -40,9 +41,10 @@ impl<P, F> AndThen<P, F> {
     }
 }
 impl<P0, P1, F> Pattern for AndThen<P0, F>
-    where P0: Pattern,
-          P1: Pattern,
-          F: FnOnce(P0::Value) -> P1
+where
+    P0: Pattern,
+    P1: Pattern,
+    F: FnOnce(P0::Value) -> P1,
 {
     type Value = P1::Value;
 }
@@ -63,8 +65,9 @@ impl<P0, P1> Or<P0, P1> {
     }
 }
 impl<P0, P1> Pattern for Or<P0, P1>
-    where P0: Pattern,
-          P1: Pattern<Value = P0::Value>
+where
+    P0: Pattern,
+    P1: Pattern<Value = P0::Value>,
 {
     type Value = P1::Value;
 }
@@ -85,9 +88,10 @@ impl<P, F, E> OrElse<P, F, E> {
     }
 }
 impl<P0, P1, F, E> Pattern for OrElse<P0, F, E>
-    where P0: Pattern,
-          P1: Pattern<Value = P0::Value>,
-          F: FnOnce(E) -> P1
+where
+    P0: Pattern,
+    P1: Pattern<Value = P0::Value>,
+    F: FnOnce(E) -> P1,
 {
     type Value = P1::Value;
 }
@@ -107,8 +111,9 @@ impl<P, F> Map<P, F> {
     }
 }
 impl<P, F, T> Pattern for Map<P, F>
-    where P: Pattern,
-          F: FnOnce(P::Value) -> T
+where
+    P: Pattern,
+    F: FnOnce(P::Value) -> T,
 {
     type Value = T;
 }
@@ -133,8 +138,9 @@ impl<P0, P1> Chain<P0, P1> {
     }
 }
 impl<P0, P1> Pattern for Chain<P0, P1>
-    where P0: Pattern,
-          P1: Pattern
+where
+    P0: Pattern,
+    P1: Pattern,
 {
     type Value = (P0::Value, P1::Value);
 }
@@ -159,9 +165,10 @@ impl<I, F, T> IterFold<I, F, T> {
     }
 }
 impl<I, P, F, T> Pattern for IterFold<I, F, T>
-    where I: Iterator<Item = P>,
-          P: Pattern,
-          F: Fn(T, P::Value) -> T
+where
+    I: Iterator<Item = P>,
+    P: Pattern,
+    F: Fn(T, P::Value) -> T,
 {
     type Value = T;
 }
@@ -175,7 +182,8 @@ pub fn iter_fold<I, F, T>(iter: I, fold: F, init: T) -> IterFold<I, F, T> {
 #[derive(Debug, Clone)]
 pub struct LE<T>(pub T);
 impl<T> Pattern for LE<T>
-    where T: Endian + Pattern
+where
+    T: Endian + Pattern,
 {
     type Value = T::Value;
 }
@@ -186,7 +194,8 @@ impl<T> Pattern for LE<T>
 #[derive(Debug, Clone)]
 pub struct BE<T>(pub T);
 impl<T> Pattern for BE<T>
-    where T: Endian + Pattern
+where
+    T: Endian + Pattern,
 {
     type Value = T::Value;
 }
@@ -215,7 +224,8 @@ impl<B> Pattern for PartialBuf<B> {
 /// This pattern is created by calling `Pattern::repeat` method.
 pub struct Repeat<P>(P);
 impl<P> futures::Stream for Repeat<P>
-    where P: Clone + Pattern
+where
+    P: Clone + Pattern,
 {
     type Item = P;
     type Error = io::Error;
@@ -241,7 +251,8 @@ impl<P: Pattern> Pattern for Expect<P> {
     type Value = P::Value;
 }
 pub fn expect<P: Pattern>(pattern: P, expected_value: P::Value) -> Expect<P>
-    where P::Value: PartialEq
+where
+    P::Value: PartialEq,
 {
     Expect(pattern, expected_value)
 }

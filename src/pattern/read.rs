@@ -192,7 +192,8 @@ impl<F, T> Pattern for Until<F, T> {
 ///
 /// If `is_eos == true` and `F` returns `Ok(None)`, it will result in the `UnexpectedEof` error.
 pub fn until<F, T>(f: F) -> Until<F, T>
-    where F: Fn(&[u8], bool) -> io::Result<Option<T>>
+where
+    F: Fn(&[u8], bool) -> io::Result<Option<T>>,
 {
     Until {
         pred: f,
@@ -223,8 +224,9 @@ impl Pattern for All {
 #[derive(Debug, Clone)]
 pub struct LengthPrefixedBytes<P>(pub P);
 impl<P> Pattern for LengthPrefixedBytes<P>
-    where P: Pattern,
-          P::Value: TryAsLength
+where
+    P: Pattern,
+    P::Value: TryAsLength,
 {
     type Value = Vec<u8>;
 }
@@ -233,8 +235,9 @@ impl<P> Pattern for LengthPrefixedBytes<P>
 #[derive(Debug, Clone)]
 pub struct Utf8<P>(pub P);
 impl<P> Pattern for Utf8<P>
-    where P: Pattern,
-          Vec<u8>: From<P::Value>
+where
+    P: Pattern,
+    Vec<u8>: From<P::Value>,
 {
     type Value = String;
 }

@@ -27,7 +27,8 @@ pub struct AsyncError<T, E> {
     error: E,
 }
 impl<T, E> AsyncError<T, E>
-    where E: error::Error
+where
+    E: error::Error,
 {
     /// Makes a new error instance.
     pub fn new(state: T, error: E) -> Self {
@@ -87,7 +88,8 @@ impl<T, E> AsyncError<T, E>
     /// assert_eq!(error.state_ref(), &11);
     /// ```
     pub fn map_state<F, U>(self, f: F) -> AsyncError<U, E>
-        where F: FnOnce(T) -> U
+    where
+        F: FnOnce(T) -> U,
     {
         AsyncError {
             state: f(self.state),
@@ -96,21 +98,24 @@ impl<T, E> AsyncError<T, E>
     }
 }
 impl<T, E> fmt::Debug for AsyncError<T, E>
-    where E: error::Error
+where
+    E: error::Error,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "AsyncError {{ state: _, error: {:?} }}", self.error)
     }
 }
 impl<T, E> fmt::Display for AsyncError<T, E>
-    where E: error::Error
+where
+    E: error::Error,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Asynchronous Error: {}", self.error)
     }
 }
 impl<T, E> error::Error for AsyncError<T, E>
-    where E: error::Error
+where
+    E: error::Error,
 {
     fn description(&self) -> &str {
         self.error.description()

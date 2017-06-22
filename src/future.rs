@@ -29,7 +29,8 @@ pub trait FutureExt: Future + Sized {
     /// # }
     /// ```
     fn select_either<B>(self, other: B) -> futures::SelectEither<Self, B::Future>
-        where B: IntoFuture
+    where
+        B: IntoFuture,
     {
         impls::select_either(self, other.into_future())
     }
@@ -54,8 +55,9 @@ mod impls {
     /// This is created by calling `FutureExt::select_either` method.
     pub struct SelectEither<A, B>(Option<(A, B)>);
     impl<A, B> Future for SelectEither<A, B>
-        where A: Future,
-              B: Future
+    where
+        A: Future,
+        B: Future,
     {
         type Item = Either<(A::Item, B), (A, B::Item)>;
         type Error = Either<(A::Error, B), (A, B::Error)>;
@@ -88,11 +90,12 @@ pub enum Phase<A, B = A, C = B, D = C, E = D> {
     E(E),
 }
 impl<A, B, C, D, E> Future for Phase<A, B, C, D, E>
-    where A: Future,
-          B: Future,
-          C: Future,
-          D: Future,
-          E: Future
+where
+    A: Future,
+    B: Future,
+    C: Future,
+    D: Future,
+    E: Future,
 {
     type Item = Phase<A::Item, B::Item, C::Item, D::Item, E::Item>;
     type Error = Phase<A::Error, B::Error, C::Error, D::Error, E::Error>;

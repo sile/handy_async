@@ -97,28 +97,37 @@ pub trait WriteInto<W: Write>: AsyncMatch<PatternWriter<W>> {
 
     /// Synchronous version of the `WriteInto::write_into` method.
     fn sync_write_into(self, writer: W) -> Result<Self::Value> {
-        self.write_into(writer)
-            .wait()
-            .map(|(_, v)| v)
-            .map_err(|e| e.into_error())
+        self.write_into(writer).wait().map(|(_, v)| v).map_err(
+            |e| {
+                e.into_error()
+            },
+        )
     }
 }
-impl<W: Write, T> WriteInto<W> for T where T: AsyncMatch<PatternWriter<W>> {}
+impl<W: Write, T> WriteInto<W> for T
+where
+    T: AsyncMatch<PatternWriter<W>>,
+{
+}
 
 /// Future to write a pattern `P` into `W`.
 ///
 /// This is created by calling `WriteInto::write_into` method.
-pub struct WritePattern<P, W>(P::Future) where P: AsyncMatch<PatternWriter<W>>;
+pub struct WritePattern<P, W>(P::Future)
+where
+    P: AsyncMatch<PatternWriter<W>>;
 impl<P, W> Future for WritePattern<P, W>
-    where P: AsyncMatch<PatternWriter<W>>
+where
+    P: AsyncMatch<PatternWriter<W>>,
 {
     type Item = (W, P::Value);
     type Error = AsyncIoError<W>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        Ok(self.0
-               .poll()
-               .map_err(|e| e.map_state(|w| w.0))?
-               .map(|(m, v)| (m.0, v)))
+        Ok(self.0.poll().map_err(|e| e.map_state(|w| w.0))?.map(
+            |(m, v)| {
+                (m.0, v)
+            },
+        ))
     }
 }
 
@@ -131,9 +140,7 @@ impl<W: Write> Future for WriteFlush<W> {
     type Item = (PatternWriter<W>, ());
     type Error = AsyncIoError<PatternWriter<W>>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        Ok(self.0
-               .poll()?
-               .map(|m| (m, ())))
+        Ok(self.0.poll()?.map(|m| (m, ())))
     }
 }
 impl<W: Write> AsyncMatch<PatternWriter<W>> for write::Flush {
@@ -231,19 +238,19 @@ impl<W: Write, B: AsRef<[u8]>> AsyncMatch<PatternWriter<W>> for PartialBuf<B> {
 
 /// A future which will write a fixnum associated with `P` into `W`.
 pub struct WriteFixnum<W, P>
-    where P: AsyncMatch<PatternWriter<W>>
+where
+    P: AsyncMatch<PatternWriter<W>>,
 {
     future: P::Future,
 }
 impl<W: Write, P> Future for WriteFixnum<W, P>
-    where P: AsyncMatch<PatternWriter<W>>
+where
+    P: AsyncMatch<PatternWriter<W>>,
 {
     type Item = (PatternWriter<W>, ());
     type Error = AsyncIoError<PatternWriter<W>>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        Ok(self.future
-               .poll()?
-               .map(|(w, _)| (w, ())))
+        Ok(self.future.poll()?.map(|(w, _)| (w, ())))
     }
 }
 

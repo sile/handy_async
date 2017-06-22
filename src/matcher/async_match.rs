@@ -44,7 +44,8 @@ pub trait AsyncMatch<M: Matcher>: Pattern {
     /// # }
     /// ```
     fn into_stream(self, matcher: M) -> MatchStream<M, Self>
-        where Self: Clone
+    where
+        Self: Clone,
     {
         let p = self.clone();
         MatchStream(self, p.async_match(matcher))
@@ -54,9 +55,12 @@ pub trait AsyncMatch<M: Matcher>: Pattern {
 /// Stream to produce a sequence of matched values.
 ///
 /// This is created by calling `AsyncMatch::into_stream` method.
-pub struct MatchStream<M: Matcher, P>(P, P::Future) where P: AsyncMatch<M>;
+pub struct MatchStream<M: Matcher, P>(P, P::Future)
+where
+    P: AsyncMatch<M>;
 impl<M: Matcher, P> Stream for MatchStream<M, P>
-    where P: AsyncMatch<M> + Clone
+where
+    P: AsyncMatch<M> + Clone,
 {
     type Item = P::Value;
     type Error = AsyncError<M, M::Error>;
@@ -75,8 +79,9 @@ impl<M: Matcher, P> Stream for MatchStream<M, P>
 /// [Map](../../pattern/combinators/struct.Map.html) pattern.
 pub struct MatchMap<P, F>(Option<(P, F)>);
 impl<M, P, F, T, U> Future for MatchMap<P, F>
-    where P: Future<Item = (M, T)>,
-          F: FnOnce(T) -> U
+where
+    P: Future<Item = (M, T)>,
+    F: FnOnce(T) -> U,
 {
     type Item = (M, U);
     type Error = P::Error;
@@ -91,8 +96,9 @@ impl<M, P, F, T, U> Future for MatchMap<P, F>
     }
 }
 impl<M: Matcher, P, F, T> AsyncMatch<M> for Map<P, F>
-    where F: FnOnce(P::Value) -> T,
-          P: AsyncMatch<M>
+where
+    F: FnOnce(P::Value) -> T,
+    P: AsyncMatch<M>,
 {
     type Future = MatchMap<<P as AsyncMatch<M>>::Future, F>;
     fn async_match(self, matcher: M) -> Self::Future {
@@ -104,14 +110,16 @@ impl<M: Matcher, P, F, T> AsyncMatch<M> for Map<P, F>
 /// Future to do pattern matching of
 /// [AndThen](../../pattern/combinators/struct.AndThen.html) pattern.
 pub struct MatchAndThen<M, P0, P1, F>(Phase<(P0::Future, F), P1::Future>)
-    where M: Matcher,
-          P0: AsyncMatch<M>,
-          P1: AsyncMatch<M>,
-          F: FnOnce(P0::Value) -> P1;
+where
+    M: Matcher,
+    P0: AsyncMatch<M>,
+    P1: AsyncMatch<M>,
+    F: FnOnce(P0::Value) -> P1;
 impl<M: Matcher, P0, P1, F> Future for MatchAndThen<M, P0, P1, F>
-    where P0: AsyncMatch<M>,
-          P1: AsyncMatch<M>,
-          F: FnOnce(P0::Value) -> P1
+where
+    P0: AsyncMatch<M>,
+    P1: AsyncMatch<M>,
+    F: FnOnce(P0::Value) -> P1,
 {
     type Item = (M, P1::Value);
     type Error = AsyncError<M, M::Error>;
@@ -140,9 +148,10 @@ impl<M: Matcher, P0, P1, F> Future for MatchAndThen<M, P0, P1, F>
     }
 }
 impl<M: Matcher, P0, P1, F> AsyncMatch<M> for AndThen<P0, F>
-    where P0: AsyncMatch<M>,
-          P1: AsyncMatch<M>,
-          F: FnOnce(P0::Value) -> P1
+where
+    P0: AsyncMatch<M>,
+    P1: AsyncMatch<M>,
+    F: FnOnce(P0::Value) -> P1,
 {
     type Future = MatchAndThen<M, P0, P1, F>;
     fn async_match(self, matcher: M) -> Self::Future {
@@ -154,13 +163,16 @@ impl<M: Matcher, P0, P1, F> AsyncMatch<M> for AndThen<P0, F>
 /// Future to do pattern matching of
 /// [Then](../../pattern/combinators/struct.Then.html) pattern.
 pub struct MatchThen<M: Matcher, P0, P1, F>(Phase<(P0::Future, F), P1::Future>)
-    where P0: AsyncMatch<M>,
-          P1: AsyncMatch<M>,
-          F: FnOnce(Result<P0::Value, M::Error>) -> P1;
+where
+    P0: AsyncMatch<M>,
+    P1: AsyncMatch<M>,
+    F: FnOnce(Result<P0::Value, M::Error>) -> P1;
 impl<M: Matcher, P0, P1, F> Future for MatchThen<M, P0, P1, F>
-    where P0: AsyncMatch<M>,
-          P1: AsyncMatch<M>,
-          F: FnOnce(Result<P0::Value, M::Error>) -> P1
+where
+    P0: AsyncMatch<M>,
+    P1: AsyncMatch<M>,
+    F: FnOnce(Result<P0::Value, M::Error>)
+           -> P1,
 {
     type Item = (M, P1::Value);
     type Error = AsyncError<M, M::Error>;
@@ -198,9 +210,14 @@ impl<M: Matcher, P0, P1, F> Future for MatchThen<M, P0, P1, F>
     }
 }
 impl<M: Matcher, P0, P1, F> AsyncMatch<M> for Then<P0, F, M::Error>
-    where P0: AsyncMatch<M>,
-          P1: AsyncMatch<M>,
-          F: FnOnce(Result<P0::Value, M::Error>) -> P1
+where
+    P0: AsyncMatch<M>,
+    P1: AsyncMatch<M>,
+    F: FnOnce(Result<
+        P0::Value,
+        M::Error,
+    >)
+           -> P1,
 {
     type Future = MatchThen<M, P0, P1, F>;
     fn async_match(self, matcher: M) -> Self::Future {
@@ -212,13 +229,15 @@ impl<M: Matcher, P0, P1, F> AsyncMatch<M> for Then<P0, F, M::Error>
 /// Future to do pattern matching of
 /// [OrElse](../../pattern/combinators/struct.OrElse.html) pattern.
 pub struct MatchOrElse<M: Matcher, P0, P1, F>(Phase<(P0::Future, F), P1::Future>)
-    where P0: AsyncMatch<M>,
-          P1: AsyncMatch<M>,
-          F: FnOnce(M::Error) -> P1;
+where
+    P0: AsyncMatch<M>,
+    P1: AsyncMatch<M>,
+    F: FnOnce(M::Error) -> P1;
 impl<M: Matcher, P0, P1, F> Future for MatchOrElse<M, P0, P1, F>
-    where P0: AsyncMatch<M>,
-          P1: AsyncMatch<M, Value = P0::Value>,
-          F: FnOnce(M::Error) -> P1
+where
+    P0: AsyncMatch<M>,
+    P1: AsyncMatch<M, Value = P0::Value>,
+    F: FnOnce(M::Error) -> P1,
 {
     type Item = (M, P1::Value);
     type Error = AsyncError<M, M::Error>;
@@ -252,9 +271,13 @@ impl<M: Matcher, P0, P1, F> Future for MatchOrElse<M, P0, P1, F>
     }
 }
 impl<M: Matcher, P0, P1, F> AsyncMatch<M> for OrElse<P0, F, M::Error>
-    where P0: AsyncMatch<M>,
-          P1: AsyncMatch<M, Value = P0::Value>,
-          F: FnOnce(M::Error) -> P1
+where
+    P0: AsyncMatch<M>,
+    P1: AsyncMatch<
+        M,
+        Value = P0::Value,
+    >,
+    F: FnOnce(M::Error) -> P1,
 {
     type Future = MatchOrElse<M, P0, P1, F>;
     fn async_match(self, matcher: M) -> Self::Future {
@@ -266,11 +289,13 @@ impl<M: Matcher, P0, P1, F> AsyncMatch<M> for OrElse<P0, F, M::Error>
 /// Future to do pattern matching of
 /// [Or](../../pattern/combinators/struct.Or.html) pattern.
 pub struct MatchOr<M: Matcher, P0, P1>(Phase<(P0::Future, P1), P1::Future>)
-    where P0: AsyncMatch<M>,
-          P1: AsyncMatch<M>;
+where
+    P0: AsyncMatch<M>,
+    P1: AsyncMatch<M>;
 impl<M: Matcher, P0, P1> Future for MatchOr<M, P0, P1>
-    where P0: AsyncMatch<M>,
-          P1: AsyncMatch<M, Value = P0::Value>
+where
+    P0: AsyncMatch<M>,
+    P1: AsyncMatch<M, Value = P0::Value>,
 {
     type Item = (M, P1::Value);
     type Error = AsyncError<M, M::Error>;
@@ -304,8 +329,9 @@ impl<M: Matcher, P0, P1> Future for MatchOr<M, P0, P1>
     }
 }
 impl<M: Matcher, P0, P1> AsyncMatch<M> for Or<P0, P1>
-    where P0: AsyncMatch<M>,
-          P1: AsyncMatch<M, Value = P0::Value>
+where
+    P0: AsyncMatch<M>,
+    P1: AsyncMatch<M, Value = P0::Value>,
 {
     type Future = MatchOr<M, P0, P1>;
     fn async_match(self, matcher: M) -> Self::Future {
@@ -317,11 +343,13 @@ impl<M: Matcher, P0, P1> AsyncMatch<M> for Or<P0, P1>
 /// Future to do pattern matching of
 /// [Chain](../../pattern/combinators/struct.Chain.html) pattern.
 pub struct MatchChain<M: Matcher, P0, P1>(Phase<(P0::Future, P1), (P1::Future, P0::Value)>)
-    where P0: AsyncMatch<M>,
-          P1: AsyncMatch<M>;
+where
+    P0: AsyncMatch<M>,
+    P1: AsyncMatch<M>;
 impl<M: Matcher, P0, P1> Future for MatchChain<M, P0, P1>
-    where P0: AsyncMatch<M>,
-          P1: AsyncMatch<M>
+where
+    P0: AsyncMatch<M>,
+    P1: AsyncMatch<M>,
 {
     type Item = (M, (P0::Value, P1::Value));
     type Error = AsyncError<M, M::Error>;
@@ -353,8 +381,9 @@ impl<M: Matcher, P0, P1> Future for MatchChain<M, P0, P1>
     }
 }
 impl<M: Matcher, P0, P1> AsyncMatch<M> for Chain<P0, P1>
-    where P0: AsyncMatch<M>,
-          P1: AsyncMatch<M>
+where
+    P0: AsyncMatch<M>,
+    P1: AsyncMatch<M>,
 {
     type Future = MatchChain<M, P0, P1>;
     fn async_match(self, matcher: M) -> Self::Future {
@@ -365,9 +394,12 @@ impl<M: Matcher, P0, P1> AsyncMatch<M> for Chain<P0, P1>
 
 /// Future to do pattern matching of
 /// [Option](../../pattern/type.Option.html) pattern.
-pub struct MatchOption<M: Matcher, P>(Option<Result<P::Future, M>>) where P: AsyncMatch<M>;
+pub struct MatchOption<M: Matcher, P>(Option<Result<P::Future, M>>)
+where
+    P: AsyncMatch<M>;
 impl<M: Matcher, P> Future for MatchOption<M, P>
-    where P: AsyncMatch<M>
+where
+    P: AsyncMatch<M>,
 {
     type Item = (M, Option<P::Value>);
     type Error = AsyncError<M, M::Error>;
@@ -387,7 +419,8 @@ impl<M: Matcher, P> Future for MatchOption<M, P>
     }
 }
 impl<M: Matcher, P> AsyncMatch<M> for Option<P>
-    where P: AsyncMatch<M>
+where
+    P: AsyncMatch<M>,
 {
     type Future = MatchOption<M, P>;
     fn async_match(self, matcher: M) -> Self::Future {
@@ -412,24 +445,27 @@ impl<M: Matcher, T> AsyncMatch<M> for Result<T, M::Error> {
 /// Future to do pattern matching of
 /// [Branch](../../pattern/struct.Branch.html) pattern.
 pub struct MatchBranch<M, A, B, C, D, E, F, G, H>
-    where M: Matcher,
-          A: AsyncMatch<M>,
-          B: AsyncMatch<M, Value = A::Value>,
-          C: AsyncMatch<M, Value = A::Value>,
-          D: AsyncMatch<M, Value = A::Value>,
-          E: AsyncMatch<M, Value = A::Value>,
-          F: AsyncMatch<M, Value = A::Value>,
-          G: AsyncMatch<M, Value = A::Value>,
-          H: AsyncMatch<M, Value = A::Value>
+where
+    M: Matcher,
+    A: AsyncMatch<M>,
+    B: AsyncMatch<M, Value = A::Value>,
+    C: AsyncMatch<M, Value = A::Value>,
+    D: AsyncMatch<M, Value = A::Value>,
+    E: AsyncMatch<M, Value = A::Value>,
+    F: AsyncMatch<M, Value = A::Value>,
+    G: AsyncMatch<M, Value = A::Value>,
+    H: AsyncMatch<M, Value = A::Value>,
 {
-    future: Branch<A::Future,
-                   B::Future,
-                   C::Future,
-                   D::Future,
-                   E::Future,
-                   F::Future,
-                   G::Future,
-                   H::Future>,
+    future: Branch<
+        A::Future,
+        B::Future,
+        C::Future,
+        D::Future,
+        E::Future,
+        F::Future,
+        G::Future,
+        H::Future,
+    >,
 }
 impl<M, A, B, C, D, E, F, G, H> Future for MatchBranch<M, A, B, C, D, E, F, G, H>
     where M: Matcher,
@@ -491,10 +527,10 @@ impl<M, A, B, C, D, E, F, G, H> AsyncMatch<M> for Branch<A, B, C, D, E, F, G, H>
 
 /// Future to do pattern matching of
 /// [IterFold](../../pattern/combinators/struct.IterFold.html) pattern.
-pub struct MatchIterFold<M: Matcher, I, F, T>(Phase<(<I::Item as AsyncMatch<M>>::Future, I, T, F),
-                                                    (M, T)>)
-    where I: Iterator,
-          I::Item: AsyncMatch<M>;
+pub struct MatchIterFold<M: Matcher, I, F, T>(Phase<(<I::Item as AsyncMatch<M>>::Future, I, T, F), (M, T)>)
+where
+    I: Iterator,
+    I::Item: AsyncMatch<M>;
 impl<M: Matcher, I, F, T> Future for MatchIterFold<M, I, F, T>
     where I: Iterator,
           I::Item: AsyncMatch<M>,
@@ -542,11 +578,13 @@ impl<M: Matcher, I, F, T> AsyncMatch<M> for IterFold<I, F, T>
 /// Future to do pattern matching of
 /// [Iter](../../pattern/struct.Iter.html) pattern.
 pub struct MatchIter<M: Matcher, I>(Phase<(<I::Item as AsyncMatch<M>>::Future, I), M>)
-    where I: Iterator,
-          I::Item: AsyncMatch<M>;
+where
+    I: Iterator,
+    I::Item: AsyncMatch<M>;
 impl<M: Matcher, I> Future for MatchIter<M, I>
-    where I: Iterator,
-          I::Item: AsyncMatch<M>
+where
+    I: Iterator,
+    I::Item: AsyncMatch<M>,
 {
     type Item = (M, ());
     type Error = AsyncError<M, M::Error>;
@@ -571,8 +609,9 @@ impl<M: Matcher, I> Future for MatchIter<M, I>
     }
 }
 impl<M: Matcher, I> AsyncMatch<M> for Iter<I>
-    where I: Iterator,
-          I::Item: AsyncMatch<M>
+where
+    I: Iterator,
+    I::Item: AsyncMatch<M>,
 {
     type Future = MatchIter<M, I>;
     fn async_match(self, matcher: M) -> Self::Future {
@@ -587,11 +626,14 @@ impl<M: Matcher, I> AsyncMatch<M> for Iter<I>
 
 /// Future to do pattern matching of
 /// [Expect](../../pattern/struct.Expect.html) pattern.
-pub struct MatchExpect<M: Matcher, P>(P::Future, P::Value) where P: AsyncMatch<M>;
+pub struct MatchExpect<M: Matcher, P>(P::Future, P::Value)
+where
+    P: AsyncMatch<M>;
 impl<M: Matcher, P> Future for MatchExpect<M, P>
-    where P: AsyncMatch<M>,
-          P::Value: PartialEq,
-          M::Error: From<UnexpectedValue<P::Value>>
+where
+    P: AsyncMatch<M>,
+    P::Value: PartialEq,
+    M::Error: From<UnexpectedValue<P::Value>>,
 {
     type Item = (M, P::Value);
     type Error = AsyncError<M, M::Error>;
@@ -609,9 +651,10 @@ impl<M: Matcher, P> Future for MatchExpect<M, P>
     }
 }
 impl<M: Matcher, P> AsyncMatch<M> for Expect<P>
-    where P: AsyncMatch<M>,
-          P::Value: PartialEq,
-          M::Error: From<UnexpectedValue<P::Value>>
+where
+    P: AsyncMatch<M>,
+    P::Value: PartialEq,
+    M::Error: From<UnexpectedValue<P::Value>>,
 {
     type Future = MatchExpect<M, P>;
     fn async_match(self, matcher: M) -> Self::Future {

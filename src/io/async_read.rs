@@ -122,9 +122,10 @@ impl<R: Read, B: AsMut<[u8]>> Future for ReadNonEmpty<R, B> {
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         if let Async::Ready((r, mut b, size)) = self.0.poll()? {
             if size == 0 && !b.as_mut().is_empty() {
-                let e = Error::new(ErrorKind::UnexpectedEof,
-                                   format!("Unexpected Eof ({} bytes are required)",
-                                           b.as_mut().len()));
+                let e = Error::new(
+                    ErrorKind::UnexpectedEof,
+                    format!("Unexpected Eof ({} bytes are required)", b.as_mut().len()),
+                );
                 Err(AsyncIoError::new((r, b), e))
             } else {
                 Ok(Async::Ready((r, b, size)))
@@ -141,16 +142,18 @@ impl<R: Read, B: AsMut<[u8]>> Future for ReadNonEmpty<R, B> {
 #[derive(Debug)]
 pub struct ReadExact<R, B>(ReadNonEmpty<R, Window<B>>);
 impl<R, B> Future for ReadExact<R, B>
-    where R: Read,
-          B: AsMut<[u8]>
+where
+    R: Read,
+    B: AsMut<[u8]>,
 {
     type Item = (R, B);
     type Error = AsyncIoError<(R, B)>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         if let Async::Ready((r, b, read_size)) =
-            self.0
-                .poll()
-                .map_err(|e| e.map_state(|(r, b)| (r, b.into_inner())))? {
+            self.0.poll().map_err(
+                |e| e.map_state(|(r, b)| (r, b.into_inner())),
+            )?
+        {
             let mut b = b.skip(read_size);
             if b.as_mut().is_empty() {
                 Ok(Async::Ready((r, b.into_inner())))

@@ -63,17 +63,17 @@ impl Counter<io::Sink> {
 impl<T: Read> Read for Counter<T> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         self.inner.read(buf).map(|size| {
-                                     self.read_size += size;
-                                     size
-                                 })
+            self.read_size += size;
+            size
+        })
     }
 }
 impl<T: Write> Write for Counter<T> {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
         self.inner.write(buf).map(|size| {
-                                      self.written_size += size;
-                                      size
-                                  })
+            self.written_size += size;
+            size
+        })
     }
     fn flush(&mut self) -> Result<()> {
         self.inner.flush()

@@ -39,11 +39,14 @@ mod external_size;
 pub type AsyncIoError<T> = AsyncError<T, io::Error>;
 
 impl<T> From<UnexpectedValue<T>> for io::Error
-    where T: fmt::Debug
+where
+    T: fmt::Debug,
 {
     fn from(f: UnexpectedValue<T>) -> Self {
-        io::Error::new(io::ErrorKind::InvalidData,
-                       format!("Unexpected value: {:?}", f.0))
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("Unexpected value: {:?}", f.0),
+        )
     }
 }
 
@@ -61,7 +64,8 @@ impl<S, T> Stateful<S, T> {
     /// Maps a `Stateful<S, T>` to `Stateful<T, U>` by
     /// applying a function `F` to the contained state.
     pub fn map_state<F, U>(self, f: F) -> Stateful<S, U>
-        where F: FnOnce(T) -> U
+    where
+        F: FnOnce(T) -> U,
     {
         let u = f(self.state);
         Stateful {

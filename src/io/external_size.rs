@@ -43,25 +43,21 @@ impl<T: ExternalSize> ExternalSize for Result<T> {
     }
 }
 impl<T> ExternalSize for pattern::Iter<T>
-    where T: Iterator + Clone,
-          T::Item: ExternalSize
+where
+    T: Iterator + Clone,
+    T::Item: ExternalSize,
 {
     fn external_size(&self) -> usize {
-        self.0
-            .clone()
-            .map(|t| t.external_size())
-            .sum()
+        self.0.clone().map(|t| t.external_size()).sum()
     }
 }
 impl<I, F, T> ExternalSize for combinators::IterFold<I, F, T>
-    where I: Iterator + Clone,
-          I::Item: ExternalSize
+where
+    I: Iterator + Clone,
+    I::Item: ExternalSize,
 {
     fn external_size(&self) -> usize {
-        self.iter_ref()
-            .clone()
-            .map(|t| t.external_size())
-            .sum()
+        self.iter_ref().clone().map(|t| t.external_size()).sum()
     }
 }
 impl<T> ExternalSize for pattern::Window<T> {
@@ -85,14 +81,15 @@ impl<T: ExternalSize> ExternalSize for combinators::LE<T> {
     }
 }
 impl<A, B, C, D, E, F, G, H> ExternalSize for pattern::Branch<A, B, C, D, E, F, G, H>
-    where A: ExternalSize,
-          B: ExternalSize,
-          C: ExternalSize,
-          D: ExternalSize,
-          E: ExternalSize,
-          F: ExternalSize,
-          G: ExternalSize,
-          H: ExternalSize
+where
+    A: ExternalSize,
+    B: ExternalSize,
+    C: ExternalSize,
+    D: ExternalSize,
+    E: ExternalSize,
+    F: ExternalSize,
+    G: ExternalSize,
+    H: ExternalSize,
 {
     fn external_size(&self) -> usize {
         match *self {
@@ -108,8 +105,9 @@ impl<A, B, C, D, E, F, G, H> ExternalSize for pattern::Branch<A, B, C, D, E, F, 
     }
 }
 impl<T0, T1> ExternalSize for combinators::Chain<T0, T1>
-    where T0: ExternalSize,
-          T1: ExternalSize
+where
+    T0: ExternalSize,
+    T1: ExternalSize,
 {
     fn external_size(&self) -> usize {
         let t = self.inner_ref();
@@ -122,71 +120,77 @@ impl ExternalSize for () {
     }
 }
 impl<T0, T1> ExternalSize for (T0, T1)
-    where T0: ExternalSize,
-          T1: ExternalSize
+where
+    T0: ExternalSize,
+    T1: ExternalSize,
 {
     fn external_size(&self) -> usize {
         self.0.external_size() + self.1.external_size()
     }
 }
 impl<T0, T1, T2> ExternalSize for (T0, T1, T2)
-    where T0: ExternalSize,
-          T1: ExternalSize,
-          T2: ExternalSize
+where
+    T0: ExternalSize,
+    T1: ExternalSize,
+    T2: ExternalSize,
 {
     fn external_size(&self) -> usize {
         self.0.external_size() + self.1.external_size() + self.2.external_size()
     }
 }
 impl<T0, T1, T2, T3> ExternalSize for (T0, T1, T2, T3)
-    where T0: ExternalSize,
-          T1: ExternalSize,
-          T2: ExternalSize,
-          T3: ExternalSize
+where
+    T0: ExternalSize,
+    T1: ExternalSize,
+    T2: ExternalSize,
+    T3: ExternalSize,
 {
     fn external_size(&self) -> usize {
         self.0.external_size() + self.1.external_size() + self.2.external_size() +
-        self.3.external_size()
+            self.3.external_size()
     }
 }
 impl<T0, T1, T2, T3, T4> ExternalSize for (T0, T1, T2, T3, T4)
-    where T0: ExternalSize,
-          T1: ExternalSize,
-          T2: ExternalSize,
-          T3: ExternalSize,
-          T4: ExternalSize
+where
+    T0: ExternalSize,
+    T1: ExternalSize,
+    T2: ExternalSize,
+    T3: ExternalSize,
+    T4: ExternalSize,
 {
     fn external_size(&self) -> usize {
         self.0.external_size() + self.1.external_size() + self.2.external_size() +
-        self.3.external_size() + self.4.external_size()
+            self.3.external_size() + self.4.external_size()
     }
 }
 impl<T0, T1, T2, T3, T4, T5> ExternalSize for (T0, T1, T2, T3, T4, T5)
-    where T0: ExternalSize,
-          T1: ExternalSize,
-          T2: ExternalSize,
-          T3: ExternalSize,
-          T4: ExternalSize,
-          T5: ExternalSize
+where
+    T0: ExternalSize,
+    T1: ExternalSize,
+    T2: ExternalSize,
+    T3: ExternalSize,
+    T4: ExternalSize,
+    T5: ExternalSize,
 {
     fn external_size(&self) -> usize {
         self.0.external_size() + self.1.external_size() + self.2.external_size() +
-        self.3.external_size() + self.4.external_size() + self.5.external_size()
+            self.3.external_size() + self.4.external_size() + self.5.external_size()
     }
 }
 impl<T0, T1, T2, T3, T4, T5, T6> ExternalSize for (T0, T1, T2, T3, T4, T5, T6)
-    where T0: ExternalSize,
-          T1: ExternalSize,
-          T2: ExternalSize,
-          T3: ExternalSize,
-          T4: ExternalSize,
-          T5: ExternalSize,
-          T6: ExternalSize
+where
+    T0: ExternalSize,
+    T1: ExternalSize,
+    T2: ExternalSize,
+    T3: ExternalSize,
+    T4: ExternalSize,
+    T5: ExternalSize,
+    T6: ExternalSize,
 {
     fn external_size(&self) -> usize {
         self.0.external_size() + self.1.external_size() + self.2.external_size() +
-        self.3.external_size() + self.4.external_size() + self.5.external_size() +
-        self.6.external_size()
+            self.3.external_size() + self.4.external_size() + self.5.external_size() +
+            self.6.external_size()
     }
 }
 impl<T0, T1, T2, T3, T4, T5, T6, T7> ExternalSize for (T0, T1, T2, T3, T4, T5, T6, T7)
@@ -224,22 +228,24 @@ impl<T0, T1, T2, T3, T4, T5, T6, T7, T8> ExternalSize for (T0, T1, T2, T3, T4, T
 }
 impl<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9> ExternalSize
     for (T0, T1, T2, T3, T4, T5, T6, T7, T8, T9)
-    where T0: ExternalSize,
-          T1: ExternalSize,
-          T2: ExternalSize,
-          T3: ExternalSize,
-          T4: ExternalSize,
-          T5: ExternalSize,
-          T6: ExternalSize,
-          T7: ExternalSize,
-          T8: ExternalSize,
-          T9: ExternalSize
+where
+    T0: ExternalSize,
+    T1: ExternalSize,
+    T2: ExternalSize,
+    T3: ExternalSize,
+    T4: ExternalSize,
+    T5: ExternalSize,
+    T6: ExternalSize,
+    T7: ExternalSize,
+    T8: ExternalSize,
+    T9: ExternalSize,
 {
     fn external_size(&self) -> usize {
         self.0.external_size() + self.1.external_size() + self.2.external_size() +
-        self.3.external_size() + self.4.external_size() + self.5.external_size() +
-        self.6.external_size() +
-        self.7.external_size() + self.8.external_size() + self.9.external_size()
+            self.3.external_size() + self.4.external_size() + self.5.external_size() +
+            self.6.external_size() + self.7.external_size() +
+            self.8.external_size() +
+            self.9.external_size()
     }
 }
 impl ExternalSize for write::Flush {

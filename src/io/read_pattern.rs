@@ -113,10 +113,9 @@ pub trait ReadFrom<R: Read>: AsyncMatch<PatternReader<R>> {
 
     /// Synchronous version of the `ReadFrom::read_from` method.
     fn sync_read_from(self, reader: R) -> Result<Self::Value> {
-        self.read_from(reader)
-            .wait()
-            .map(|(_, v)| v)
-            .map_err(|e| e.into_error())
+        self.read_from(reader).wait().map(|(_, v)| v).map_err(|e| {
+            e.into_error()
+        })
     }
 
     /// Consumes this pattern and the `reader`,
@@ -137,20 +136,27 @@ pub trait ReadFrom<R: Read>: AsyncMatch<PatternReader<R>> {
     /// # }
     /// ```
     fn into_stream(self, reader: R) -> ReadStream<R, Self>
-        where Self: Clone
+    where
+        Self: Clone,
     {
         ReadStream(AsyncMatch::into_stream(self, PatternReader(reader)))
     }
 }
-impl<R: Read, T> ReadFrom<R> for T where T: AsyncMatch<PatternReader<R>> {}
+impl<R: Read, T> ReadFrom<R> for T
+where
+    T: AsyncMatch<PatternReader<R>>,
+{
+}
 
 /// Stream to produce a sequence of read values.
 ///
 /// This is created by calling `ReadFrom::into_stream` method.
 pub struct ReadStream<R: Read, P>(MatchStream<PatternReader<R>, P>)
-    where P: AsyncMatch<PatternReader<R>>;
+where
+    P: AsyncMatch<PatternReader<R>>;
 impl<R: Read, P> Stream for ReadStream<R, P>
-    where P: AsyncMatch<PatternReader<R>> + Clone
+where
+    P: AsyncMatch<PatternReader<R>> + Clone,
 {
     type Item = P::Value;
     type Error = AsyncIoError<R>;
@@ -162,17 +168,21 @@ impl<R: Read, P> Stream for ReadStream<R, P>
 /// Future to match between a pattern `P` and bytes read from `R`.
 ///
 /// This is created by calling `ReadFrom::read_from` method.
-pub struct ReadPattern<P, R>(P::Future) where P: AsyncMatch<PatternReader<R>>;
+pub struct ReadPattern<P, R>(P::Future)
+where
+    P: AsyncMatch<PatternReader<R>>;
 impl<P, R> Future for ReadPattern<P, R>
-    where P: AsyncMatch<PatternReader<R>>
+where
+    P: AsyncMatch<PatternReader<R>>,
 {
     type Item = (R, P::Value);
     type Error = AsyncIoError<R>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        Ok(self.0
-               .poll()
-               .map_err(|e| e.map_state(|m| m.0))?
-               .map(|(m, v)| (m.0, v)))
+        Ok(self.0.poll().map_err(|e| e.map_state(|m| m.0))?.map(
+            |(m, v)| {
+                (m.0, v)
+            },
+        ))
     }
 }
 
@@ -195,10 +205,12 @@ impl<R: Read, B: AsMut<[u8]>> Future for ReadBuf<R, B> {
     type Item = (PatternReader<R>, B);
     type Error = AsyncIoError<PatternReader<R>>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        Ok(self.0
-               .poll()
-               .map_err(|e| e.map_state(|(r, _)| r))?
-               .map(|(r, v)| (r, v.0)))
+        Ok(self.0.poll().map_err(|e| e.map_state(|(r, _)| r))?.map(
+            |(r,
+              v)| {
+                (r, v.0)
+            },
+        ))
     }
 }
 impl<R: Read, B: AsMut<[u8]>> AsyncMatch<PatternReader<R>> for Buf<B> {
@@ -277,14 +289,14 @@ impl<R: Read> Future for ReadString<R> {
     type Item = (PatternReader<R>, String);
     type Error = AsyncIoError<PatternReader<R>>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        if let Async::Ready((r, b)) =
-            self.0
-                .poll()
-                .map_err(|e| e.map_state(|(r, _)| r))? {
+        if let Async::Ready((r, b)) = self.0.poll().map_err(|e| e.map_state(|(r, _)| r))? {
             match String::from_utf8(b) {
                 Ok(s) => Ok(Async::Ready((r, s))),
                 Err(e) => {
-                    Err(AsyncIoError::new(r, Error::new(ErrorKind::InvalidData, Box::new(e))))
+                    Err(AsyncIoError::new(
+                        r,
+                        Error::new(ErrorKind::InvalidData, Box::new(e)),
+                    ))
                 }
             }
         } else {
@@ -318,7 +330,8 @@ pub struct ReadLengthPrefixedBytes<R: Read, P>(
     <combinators::AndThen<P, fn(P::Value) -> Branch<Vec<u8>, Result<Vec<u8>>>> as
      AsyncMatch<PatternReader<R>>>::Future) where P: AsyncMatch<PatternReader<R>>;
 impl<R: Read, P> Future for ReadLengthPrefixedBytes<R, P>
-    where P: AsyncMatch<PatternReader<R>>
+where
+    P: AsyncMatch<PatternReader<R>>,
 {
     type Item = (PatternReader<R>, Vec<u8>);
     type Error = AsyncIoError<PatternReader<R>>;
@@ -362,10 +375,7 @@ impl<R: Read> Future for ReadAll<R> {
     type Item = (PatternReader<R>, Vec<u8>);
     type Error = AsyncIoError<PatternReader<R>>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        if let Async::Ready((r, b, size)) =
-            self.0
-                .poll()
-                .map_err(|e| e.map_state(|(r, _)| r))? {
+        if let Async::Ready((r, b, size)) = self.0.poll().map_err(|e| e.map_state(|(r, _)| r))? {
             if size == 0 {
                 let total_read_size = b.start();
                 let mut b = b.into_inner();
@@ -409,10 +419,13 @@ impl<R: Read> AsyncMatch<PatternReader<R>> for read::All {
 /// let string = Utf8(LengthPrefixedBytes(U8)).sync_read_from(&input[..]).unwrap();
 /// assert_eq!(string, "hel");
 /// ```
-pub struct ReadUtf8<R: Read, P>(P::Future) where P: AsyncMatch<PatternReader<R>>;
+pub struct ReadUtf8<R: Read, P>(P::Future)
+where
+    P: AsyncMatch<PatternReader<R>>;
 impl<R: Read, P> Future for ReadUtf8<R, P>
-    where P: AsyncMatch<PatternReader<R>>,
-          Vec<u8>: From<P::Value>
+where
+    P: AsyncMatch<PatternReader<R>>,
+    Vec<u8>: From<P::Value>,
 {
     type Item = (PatternReader<R>, String);
     type Error = AsyncIoError<PatternReader<R>>;
@@ -420,7 +433,10 @@ impl<R: Read, P> Future for ReadUtf8<R, P>
         if let Async::Ready((m, b)) = self.0.poll()? {
             match String::from_utf8(Vec::from(b)) {
                 Err(e) => {
-                    Err(AsyncIoError::new(m, Error::new(ErrorKind::InvalidData, Box::new(e))))
+                    Err(AsyncIoError::new(
+                        m,
+                        Error::new(ErrorKind::InvalidData, Box::new(e)),
+                    ))
                 }
                 Ok(s) => Ok(Async::Ready((m, s))),
             }
@@ -430,8 +446,9 @@ impl<R: Read, P> Future for ReadUtf8<R, P>
     }
 }
 impl<R: Read, P> AsyncMatch<PatternReader<R>> for read::Utf8<P>
-    where P: AsyncMatch<PatternReader<R>>,
-          Vec<u8>: From<P::Value>
+where
+    P: AsyncMatch<PatternReader<R>>,
+    Vec<u8>: From<P::Value>,
 {
     type Future = ReadUtf8<R, P>;
     fn async_match(self, matcher: PatternReader<R>) -> Self::Future {
@@ -441,20 +458,20 @@ impl<R: Read, P> AsyncMatch<PatternReader<R>> for read::Utf8<P>
 
 /// A future which will read a fixnum associated with `P` from `R`.
 pub struct ReadFixnum<R, P, T>
-    where P: AsyncMatch<PatternReader<R>>
+where
+    P: AsyncMatch<PatternReader<R>>,
 {
     future: P::Future,
     convert: fn(P::Value) -> T,
 }
 impl<R: Read, P, T> Future for ReadFixnum<R, P, T>
-    where P: AsyncMatch<PatternReader<R>>
+where
+    P: AsyncMatch<PatternReader<R>>,
 {
     type Item = (PatternReader<R>, T);
     type Error = AsyncIoError<PatternReader<R>>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        Ok(self.future
-               .poll()?
-               .map(|(r, v)| (r, (self.convert)(v))))
+        Ok(self.future.poll()?.map(|(r, v)| (r, (self.convert)(v))))
     }
 }
 
@@ -671,23 +688,24 @@ impl<R: Read> AsyncMatch<PatternReader<R>> for read::Line {
 /// This future is generally created by invoking
 /// `ReadFrom::read_from` method for `Until` pattern.
 pub struct ReadUntil<R, F, T>
-    where R: Read,
-          F: Fn(&[u8], bool) -> Result<Option<T>>
+where
+    R: Read,
+    F: Fn(&[u8], bool) -> Result<Option<T>>,
 {
     read: ReadBytes<PatternReader<R>, Window<Vec<u8>>>,
     pred: F,
     max_buffer_size: usize,
 }
 impl<R: Read, F, T> Future for ReadUntil<R, F, T>
-    where F: Fn(&[u8], bool) -> Result<Option<T>>
+where
+    F: Fn(&[u8], bool) -> Result<Option<T>>,
 {
     type Item = (PatternReader<R>, (Vec<u8>, T));
     type Error = AsyncIoError<PatternReader<R>>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         if let Async::Ready((r, mut b, read_size)) =
-            self.read
-                .poll()
-                .map_err(|e| e.map_state(|(r, _)| r))? {
+            self.read.poll().map_err(|e| e.map_state(|(r, _)| r))?
+        {
             let is_eos = read_size == 0;
             b = b.skip(read_size);
             let total_read_size = b.start();
@@ -725,7 +743,9 @@ impl<R: Read, F, T> Future for ReadUntil<R, F, T>
     }
 }
 impl<R: Read, F, T> AsyncMatch<PatternReader<R>> for read::Until<F, T>
-    where F: Fn(&[u8], bool) -> Result<Option<T>>
+where
+    F: Fn(&[u8], bool)
+       -> Result<Option<T>>,
 {
     type Future = ReadUntil<R, F, T>;
     fn async_match(self, matcher: PatternReader<R>) -> Self::Future {
