@@ -1,9 +1,11 @@
 //! Patterns.
 use std::usize;
-use futures::{self, Future, BoxFuture};
+use futures::{self, Future};
 
 use matcher::{AsyncMatch, Matcher};
 use error::AsyncError;
+
+type BoxFuture<T, E> = Box<Future<Item = T, Error = E> + Send + 'static>;
 
 pub mod read;
 pub mod write;
@@ -121,7 +123,7 @@ pub trait Pattern: Sized {
         Self: AsyncMatch<M> + 'static,
         Self::Future: Send + 'static,
     {
-        let mut f = Some(move |matcher: M| self.async_match(matcher).boxed());
+        let mut f = Some(move |matcher: M| Box::new(self.async_match(matcher)));
         BoxPattern(Box::new(move |matcher| (f.take().unwrap())(matcher)))
     }
 }
