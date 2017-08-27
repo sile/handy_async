@@ -2,6 +2,7 @@ handy_async
 ===========
 
 [![Crates.io: handy_async](http://meritbadge.herokuapp.com/handy_async)](https://crates.io/crates/handy_async)
+[![Documentation](https://docs.rs/handy_async/badge.svg)](https://docs.rs/handy_async)
 [![Build Status](https://travis-ci.org/sile/handy_async.svg?branch=master)](https://travis-ci.org/sile/handy_async)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
