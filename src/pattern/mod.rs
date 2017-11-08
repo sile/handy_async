@@ -1,4 +1,5 @@
 //! Patterns.
+use std::mem;
 use std::usize;
 use futures::{self, Future};
 
@@ -129,7 +130,7 @@ pub trait Pattern: Sized {
 }
 
 /// Boxed pattern.
-pub struct BoxPattern<M: Matcher, T>(Box<FnMut(M) -> BoxFuture<(M, T), AsyncError<M, M::Error>>>);
+pub struct BoxPattern<M: Matcher, T>(BoxMatchFn<M, T, M::Error>);
 impl<M: Matcher, T> Pattern for BoxPattern<M, T> {
     type Value = T;
 }
@@ -139,6 +140,7 @@ impl<M: Matcher, T> AsyncMatch<M> for BoxPattern<M, T> {
         (self.0)(matcher)
     }
 }
+type BoxMatchFn<M, T, E> = Box<FnMut(M) -> BoxFuture<(M, T), AsyncError<M, E>>>;
 
 /// A pattern which represents a sequence of a pattern `P`.
 #[derive(Debug)]
@@ -447,7 +449,7 @@ impl TryAsLength for u8 {
 }
 impl TryAsLength for u16 {
     fn try_as_length(&self) -> Option<usize> {
-        if *self as u64 <= usize::MAX as u64 {
+        if mem::size_of::<Self>() <= mem::size_of::<usize>() {
             Some(*self as usize)
         } else {
             None
@@ -456,7 +458,7 @@ impl TryAsLength for u16 {
 }
 impl TryAsLength for u32 {
     fn try_as_length(&self) -> Option<usize> {
-        if *self as u64 <= usize::MAX as u64 {
+        if mem::size_of::<Self>() <= mem::size_of::<usize>() {
             Some(*self as usize)
         } else {
             None
@@ -465,7 +467,7 @@ impl TryAsLength for u32 {
 }
 impl TryAsLength for u64 {
     fn try_as_length(&self) -> Option<usize> {
-        if *self as u64 <= usize::MAX as u64 {
+        if mem::size_of::<Self>() <= mem::size_of::<usize>() {
             Some(*self as usize)
         } else {
             None

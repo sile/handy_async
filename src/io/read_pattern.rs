@@ -15,7 +15,7 @@ use super::AsyncIoError;
 /// A matcher to read patterns from the inner reader `R`.
 ///
 /// This is mainly used to define your own reading patterns.
-/// See the example of the [ReadFrom](./trait.ReadFrom.html) trait.
+/// See the example of the [`ReadFrom`](./trait.ReadFrom.html) trait.
 pub struct PatternReader<R>(R);
 impl<R: Read> PatternReader<R> {
     /// Makes new `PatternReader` instance.
@@ -327,7 +327,7 @@ impl<R: Read> AsyncMatch<PatternReader<R>> for String {
 /// assert_eq!(bytes, b"hel");
 /// ```
 pub struct ReadLengthPrefixedBytes<R: Read, P>(
-    <combinators::AndThen<P, fn(P::Value) -> Branch<Vec<u8>, Result<Vec<u8>>>> as
+    <combinators::AndThen<P, BranchFun<P::Value>> as
      AsyncMatch<PatternReader<R>>>::Future) where P: AsyncMatch<PatternReader<R>>;
 impl<R: Read, P> Future for ReadLengthPrefixedBytes<R, P>
 where
@@ -345,18 +345,17 @@ impl<R: Read, P> AsyncMatch<PatternReader<R>> for read::LengthPrefixedBytes<P>
 {
     type Future = ReadLengthPrefixedBytes<R, P>;
     fn async_match(self, matcher: PatternReader<R>) -> Self::Future {
-        fn conv<T>(len: T) -> Branch<Vec<u8>, Result<Vec<u8>>>
-            where T: TryAsLength
-        {
+        let conv: fn(P::Value) -> _ = |len| {
             if let Some(len) = len.try_as_length() {
                 Branch::A(vec![0; len])
             } else {
                 Branch::B(Err(Error::new(ErrorKind::InvalidData, "Too large length")))
             }
-        }
-        ReadLengthPrefixedBytes(self.0.and_then(conv as _).async_match(matcher))
+        };
+        ReadLengthPrefixedBytes(self.0.and_then(conv).async_match(matcher))
     }
 }
+type BranchFun<V> = fn(V) -> Branch<Vec<u8>, Result<Vec<u8>>>;
 
 /// A future which will read all bytes remaining in a stream.
 ///
@@ -656,7 +655,7 @@ impl<R: Read> Future for ReadLine<R> {
                 } else {
                     let b = byte[0];
                     buf.push(b);
-                    b == '\n' as u8
+                    b == b'\n'
                 };
                 if newline {
                     match String::from_utf8(buf) {

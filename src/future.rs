@@ -89,6 +89,7 @@ pub enum Phase<A, B = A, C = B, D = C, E = D> {
     D(D),
     E(E),
 }
+#[cfg_attr(feature = "cargo-clippy", allow(type_complexity))]
 impl<A, B, C, D, E> Future for Phase<A, B, C, D, E>
 where
     A: Future,

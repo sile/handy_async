@@ -134,12 +134,12 @@ pub trait WriteExt: Write {
 
     /// Writes a big-endian 24-bit integer.
     fn write_u24be(&mut self, n: u32) -> Result<()> {
-        self.write_uint::<BigEndian>(n as u64, 3)
+        self.write_uint::<BigEndian>(u64::from(n), 3)
     }
 
     /// Writes a little-endian 24-bit integer.
     fn write_u24le(&mut self, n: u32) -> Result<()> {
-        self.write_uint::<LittleEndian>(n as u64, 3)
+        self.write_uint::<LittleEndian>(u64::from(n), 3)
     }
 
     /// Writes a big-endian 32-bit integer.

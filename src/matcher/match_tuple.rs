@@ -25,12 +25,14 @@ where
 
 /// Future to do pattern matching of
 /// [Tuple3](../../pattern/combinators/type.Tuple3.html) pattern.
+#[cfg_attr(feature = "cargo-clippy", allow(type_complexity))]
 pub struct MatchTuple3<M, A, B, C>(Phase<(A::Future, B, C), (B::Future, C, A::Value), (C::Future, A::Value, B::Value)>)
 where
     M: Matcher,
     A: AsyncMatch<M>,
     B: AsyncMatch<M>,
     C: AsyncMatch<M>;
+#[cfg_attr(feature = "cargo-clippy", allow(type_complexity))]
 impl<M, A, B, C> Future for MatchTuple3<M, A, B, C>
 where
     M: Matcher,
@@ -88,6 +90,7 @@ where
 
 /// Future to do pattern matching of
 /// [Tuple4](../../pattern/combinators/type.Tuple4.html) pattern.
+#[cfg_attr(feature = "cargo-clippy", allow(type_complexity))]
 pub struct MatchTuple4<M, A, B, C, D>
 where
     M: Matcher,
@@ -103,6 +106,7 @@ where
         (D::Future, A::Value, B::Value, C::Value),
     >,
 }
+#[cfg_attr(feature = "cargo-clippy", allow(type_complexity))]
 impl<M, A, B, C, D> Future for MatchTuple4<M, A, B, C, D>
 where
     M: Matcher,
@@ -171,6 +175,7 @@ where
 
 /// Future to do pattern matching of
 /// [Tuple5](../../pattern/combinators/type.Tuple5.html) pattern.
+#[cfg_attr(feature = "cargo-clippy", allow(type_complexity))]
 pub struct MatchTuple5<M, A, B, C, D, E>
 where
     M: Matcher,
@@ -188,6 +193,7 @@ where
         (E::Future, A::Value, B::Value, C::Value, D::Value),
     >,
 }
+#[cfg_attr(feature = "cargo-clippy", allow(type_complexity))]
 impl<M, A, B, C, D, E> Future for MatchTuple5<M, A, B, C, D, E>
 where
     M: Matcher,
@@ -267,6 +273,7 @@ where
 
 /// Future to do pattern matching of
 /// [Tuple6](../../pattern/combinators/type.Tuple6.html) pattern.
+#[cfg_attr(feature = "cargo-clippy", allow(type_complexity))]
 pub struct MatchTuple6<M, A, B, C, D, E, F>
 where
     M: Matcher,
@@ -286,6 +293,7 @@ where
         (F::Future, A::Value, B::Value, C::Value, D::Value, E::Value),
     >,
 }
+#[cfg_attr(feature = "cargo-clippy", allow(type_complexity))]
 impl<M, A, B, C, D, E, F> Future for MatchTuple6<M, A, B, C, D, E, F>
 where
     M: Matcher,
@@ -376,6 +384,7 @@ where
 
 /// Future to do pattern matching of
 /// [Tuple7](../../pattern/combinators/type.Tuple7.html) pattern.
+#[cfg_attr(feature = "cargo-clippy", allow(type_complexity))]
 pub struct MatchTuple7<M, A, B, C, D, E, F, G>
 where
     M: Matcher,
@@ -397,6 +406,7 @@ where
         (G::Future, A::Value, B::Value, C::Value, D::Value, E::Value, F::Value),
     >,
 }
+#[cfg_attr(feature = "cargo-clippy", allow(type_complexity))]
 impl<M, A, B, C, D, E, F, G> Future for MatchTuple7<M, A, B, C, D, E, F, G>
 where
     M: Matcher,
@@ -498,6 +508,7 @@ where
 
 /// Future to do pattern matching of
 /// [Tuple8](../../pattern/combinators/type.Tuple8.html) pattern.
+#[cfg_attr(feature = "cargo-clippy", allow(type_complexity))]
 pub struct MatchTuple8<M, A, B, C, D, E, F, G, H>
 where
     M: Matcher,
@@ -521,6 +532,7 @@ where
         (H::Future, A::Value, B::Value, C::Value, D::Value, E::Value, F::Value, G::Value),
     >,
 }
+#[cfg_attr(feature = "cargo-clippy", allow(type_complexity))]
 impl<M, A, B, C, D, E, F, G, H> Future for MatchTuple8<M, A, B, C, D, E, F, G, H>
 where
     M: Matcher,
@@ -641,6 +653,7 @@ where
 
 /// Future to do pattern matching of
 /// [Tuple9](../../pattern/combinators/type.Tuple9.html) pattern.
+#[cfg_attr(feature = "cargo-clippy", allow(type_complexity))]
 pub struct MatchTuple9<M, A, B, C, D, E, F, G, H, I>
 where
     M: Matcher,
@@ -674,6 +687,7 @@ where
          H::Value),
     >,
 }
+#[cfg_attr(feature = "cargo-clippy", allow(type_complexity))]
 impl<M, A, B, C, D, E, F, G, H, I> Future for MatchTuple9<M, A, B, C, D, E, F, G, H, I>
     where M: Matcher,
           A: AsyncMatch<M>,
@@ -805,6 +819,7 @@ where
 
 /// Future to do pattern matching of
 /// [Tuple10](../../pattern/combinators/type.Tuple10.html) pattern.
+#[cfg_attr(feature = "cargo-clippy", allow(type_complexity))]
 pub struct MatchTuple10<M, A, B, C, D, E, F, G, H, I, J>
 where
     M: Matcher,
@@ -859,6 +874,7 @@ where
          I::Value),
     >,
 }
+#[cfg_attr(feature = "cargo-clippy", allow(type_complexity))]
 impl<M, A, B, C, D, E, F, G, H, I, J> Future for MatchTuple10<M, A, B, C, D, E, F, G, H, I, J>
     where M: Matcher,
           A: AsyncMatch<M>,

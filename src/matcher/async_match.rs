@@ -10,11 +10,11 @@ use super::Matcher;
 /// between a pattern `Self` and a matcher `M`.
 ///
 /// Normally, users will not be aware of this trait and will use
-/// more specific interfaces like [ReadFrom](../pattern/trait.ReadFrom.html) and
-/// [WriteInto](../pattern/trait.WriteInto.html).
+/// more specific interfaces like [`ReadFrom`](../pattern/trait.ReadFrom.html) and
+/// [`WriteInto`](../pattern/trait.WriteInto.html).
 ///
 /// For details on how to define your own matcher,
-/// see the documentation of [Matcher](./trait.Matcher.html) trait.
+/// see the documentation of [`Matcher`](./trait.Matcher.html) trait.
 pub trait AsyncMatch<M: Matcher>: Pattern {
     /// The future type which will produce a value `Self::Value` by
     /// matching this pattern and a matcher `M`.
@@ -76,7 +76,7 @@ where
 }
 
 /// Future to do pattern matching of
-/// [Map](../../pattern/combinators/struct.Map.html) pattern.
+/// [`Map`](../../pattern/combinators/struct.Map.html) pattern.
 pub struct MatchMap<P, F>(Option<(P, F)>);
 impl<M, P, F, T, U> Future for MatchMap<P, F>
 where
@@ -108,7 +108,7 @@ where
 }
 
 /// Future to do pattern matching of
-/// [AndThen](../../pattern/combinators/struct.AndThen.html) pattern.
+/// [`AndThen`](../../pattern/combinators/struct.AndThen.html) pattern.
 pub struct MatchAndThen<M, P0, P1, F>(Phase<(P0::Future, F), P1::Future>)
 where
     M: Matcher,
@@ -227,7 +227,7 @@ where
 }
 
 /// Future to do pattern matching of
-/// [OrElse](../../pattern/combinators/struct.OrElse.html) pattern.
+/// [`OrElse`](../../pattern/combinators/struct.OrElse.html) pattern.
 pub struct MatchOrElse<M: Matcher, P0, P1, F>(Phase<(P0::Future, F), P1::Future>)
 where
     P0: AsyncMatch<M>,
@@ -342,7 +342,7 @@ where
 
 /// Future to do pattern matching of
 /// [Chain](../../pattern/combinators/struct.Chain.html) pattern.
-pub struct MatchChain<M: Matcher, P0, P1>(Phase<(P0::Future, P1), (P1::Future, P0::Value)>)
+pub struct MatchChain<M: Matcher, P0, P1>(ChainPhase<P0::Future, P1, P1::Future, P0::Value>)
 where
     P0: AsyncMatch<M>,
     P1: AsyncMatch<M>;
@@ -391,6 +391,7 @@ where
         MatchChain(Phase::A((p0.async_match(matcher), p1)))
     }
 }
+type ChainPhase<F0, Next, F1, Value> = Phase<(F0, Next), (F1, Value)>;
 
 /// Future to do pattern matching of
 /// [Option](../../pattern/type.Option.html) pattern.
@@ -444,6 +445,7 @@ impl<M: Matcher, T> AsyncMatch<M> for Result<T, M::Error> {
 
 /// Future to do pattern matching of
 /// [Branch](../../pattern/struct.Branch.html) pattern.
+#[cfg_attr(feature = "cargo-clippy", allow(type_complexity))]
 pub struct MatchBranch<M, A, B, C, D, E, F, G, H>
 where
     M: Matcher,
@@ -467,6 +469,7 @@ where
         H::Future,
     >,
 }
+#[cfg_attr(feature = "cargo-clippy", allow(type_complexity))]
 impl<M, A, B, C, D, E, F, G, H> Future for MatchBranch<M, A, B, C, D, E, F, G, H>
     where M: Matcher,
           A: AsyncMatch<M>,
@@ -526,7 +529,8 @@ impl<M, A, B, C, D, E, F, G, H> AsyncMatch<M> for Branch<A, B, C, D, E, F, G, H>
 }
 
 /// Future to do pattern matching of
-/// [IterFold](../../pattern/combinators/struct.IterFold.html) pattern.
+/// [`IterFold`](../../pattern/combinators/struct.IterFold.html) pattern.
+#[cfg_attr(feature = "cargo-clippy", allow(type_complexity))]
 pub struct MatchIterFold<M: Matcher, I, F, T>(Phase<(<I::Item as AsyncMatch<M>>::Future, I, T, F), (M, T)>)
 where
     I: Iterator,
