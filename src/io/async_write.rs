@@ -95,6 +95,17 @@ impl<W: Write> AsyncWrite for W {}
 /// This is created by calling `AsyncWrite::async_write` method.
 #[derive(Debug)]
 pub struct WriteBytes<W, B>(Option<(W, B)>);
+impl<W, B> WriteBytes<W, B> {
+    /// Returns the reference to the writer.
+    pub fn writer(&self) -> &W {
+        &self.0.as_ref().expect("WriteBytes has been consumed").0
+    }
+
+    /// Returns the mutable reference to the writer.
+    pub fn writer_mut(&mut self) -> &mut W {
+        &mut self.0.as_mut().expect("WriteBytes has been consumed").0
+    }
+}
 impl<W: Write, B: AsRef<[u8]>> Future for WriteBytes<W, B> {
     type Item = (W, B, usize);
     type Error = AsyncIoError<(W, B)>;
@@ -119,6 +130,17 @@ impl<W: Write, B: AsRef<[u8]>> Future for WriteBytes<W, B> {
 /// This is created by calling `AsyncWrite::async_write_all` method.
 #[derive(Debug)]
 pub struct WriteAll<W, B>(WriteBytes<W, Window<B>>);
+impl<W, B> WriteAll<W, B> {
+    /// Returns the reference to the writer.
+    pub fn writer(&self) -> &W {
+        self.0.writer()
+    }
+
+    /// Returns the mutable reference to the writer.
+    pub fn writer_mut(&mut self) -> &mut W {
+        self.0.writer_mut()
+    }
+}
 impl<W: Write, B: AsRef<[u8]>> Future for WriteAll<W, B> {
     type Item = (W, B);
     type Error = AsyncIoError<(W, B)>;
@@ -150,6 +172,17 @@ impl<W: Write, B: AsRef<[u8]>> Future for WriteAll<W, B> {
 /// This is created by calling `AsyncWrite::async_flush` method.
 #[derive(Debug)]
 pub struct Flush<W>(Option<W>);
+impl<W> Flush<W> {
+    /// Returns the reference to the writer.
+    pub fn writer(&self) -> &W {
+        self.0.as_ref().expect("Flush has been consumed")
+    }
+
+    /// Returns the mutable reference to the writer.
+    pub fn writer_mut(&mut self) -> &mut W {
+        self.0.as_mut().expect("Flush has been consumed")
+    }
+}
 impl<W: Write> Future for Flush<W> {
     type Item = W;
     type Error = AsyncIoError<W>;

@@ -92,6 +92,17 @@ impl<R: Read> AsyncRead for R {}
 /// This is created by calling `AsyncRead::async_read` method.
 #[derive(Debug)]
 pub struct ReadBytes<R, B>(Option<(R, B)>);
+impl<R, B> ReadBytes<R, B> {
+    /// Returns the reference to the reader.
+    pub fn reader(&self) -> &R {
+        &self.0.as_ref().expect("ReadBytes has been consumed").0
+    }
+
+    /// Returns the mutable reference to the reader.
+    pub fn reader_mut(&mut self) -> &mut R {
+        &mut self.0.as_mut().expect("ReadBytes has been consumed").0
+    }
+}
 impl<R: Read, B: AsMut<[u8]>> Future for ReadBytes<R, B> {
     type Item = (R, B, usize);
     type Error = AsyncIoError<(R, B)>;
@@ -116,6 +127,17 @@ impl<R: Read, B: AsMut<[u8]>> Future for ReadBytes<R, B> {
 /// This is created by calling `AsyncRead::async_read_non_empty` method.
 #[derive(Debug)]
 pub struct ReadNonEmpty<R, B>(ReadBytes<R, B>);
+impl<R, B> ReadNonEmpty<R, B> {
+    /// Returns the reference to the reader.
+    pub fn reader(&self) -> &R {
+        self.0.reader()
+    }
+
+    /// Returns the mutable reference to the reader.
+    pub fn reader_mut(&mut self) -> &mut R {
+        self.0.reader_mut()
+    }
+}
 impl<R: Read, B: AsMut<[u8]>> Future for ReadNonEmpty<R, B> {
     type Item = (R, B, usize);
     type Error = AsyncIoError<(R, B)>;
@@ -141,6 +163,17 @@ impl<R: Read, B: AsMut<[u8]>> Future for ReadNonEmpty<R, B> {
 /// This is created by calling `AsyncRead::async_read_exact` method.
 #[derive(Debug)]
 pub struct ReadExact<R, B>(ReadNonEmpty<R, Window<B>>);
+impl<R, B> ReadExact<R, B> {
+    /// Returns the reference to the reader.
+    pub fn reader(&self) -> &R {
+        self.0.reader()
+    }
+
+    /// Returns the mutable reference to the reader.
+    pub fn reader_mut(&mut self) -> &mut R {
+        self.0.reader_mut()
+    }
+}
 impl<R, B> Future for ReadExact<R, B>
 where
     R: Read,
