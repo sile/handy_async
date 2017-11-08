@@ -277,18 +277,18 @@ impl_write_fixnum_pattern!(i16, 2, NativeEndian::write_i16);
 impl_write_fixnum_pattern!(BE<i16>, 2, |b: &mut [u8], n: Self| BigEndian::write_i16(b,n.0));
 impl_write_fixnum_pattern!(LE<i16>, 2, |b: &mut [u8], n: Self| LittleEndian::write_i16(b,n.0));
 
-impl_write_fixnum_pattern!(U24, 3,
-                           |b: &mut [u8], n: Self| NativeEndian::write_uint(b, u64::from(n.0), 3));
-impl_write_fixnum_pattern!(BE<U24>, 3,
-                           |b: &mut [u8], n: Self| BigEndian::write_uint(b,u64::from((n.0).0), 3));
-impl_write_fixnum_pattern!(LE<U24>, 3,
-                           |b: &mut [u8], n: Self| LittleEndian::write_uint(b,u64::from((n.0).0), 3));
-impl_write_fixnum_pattern!(I24, 3,
-                           |b: &mut [u8], n: Self| NativeEndian::write_int(b, i64::from(n.0), 3));
-impl_write_fixnum_pattern!(BE<I24>, 3,
-                           |b: &mut [u8], n: Self| BigEndian::write_int(b,i64::from((n.0).0), 3));
-impl_write_fixnum_pattern!(LE<I24>, 3,
-                           |b: &mut [u8], n: Self| LittleEndian::write_int(b,i64::from((n.0).0), 3));
+impl_write_fixnum_pattern!(
+    U24, 3, |b: &mut [u8], n: Self| NativeEndian::write_uint(b, u64::from(n.0), 3));
+impl_write_fixnum_pattern!(
+    BE<U24>, 3, |b: &mut [u8], n: Self| BigEndian::write_uint(b,u64::from((n.0).0), 3));
+impl_write_fixnum_pattern!(
+    LE<U24>, 3, |b: &mut [u8], n: Self| LittleEndian::write_uint(b,u64::from((n.0).0), 3));
+impl_write_fixnum_pattern!(
+    I24, 3, |b: &mut [u8], n: Self| NativeEndian::write_int(b, i64::from(n.0), 3));
+impl_write_fixnum_pattern!(
+    BE<I24>, 3, |b: &mut [u8], n: Self| BigEndian::write_int(b,i64::from((n.0).0), 3));
+impl_write_fixnum_pattern!(
+    LE<I24>, 3, |b: &mut [u8], n: Self| LittleEndian::write_int(b,i64::from((n.0).0), 3));
 
 impl_write_fixnum_pattern!(u32, 4, NativeEndian::write_u32);
 impl_write_fixnum_pattern!(BE<u32>, 4, |b: &mut [u8], n: Self| BigEndian::write_u32(b,n.0));

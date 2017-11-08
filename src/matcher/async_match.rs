@@ -531,10 +531,13 @@ impl<M, A, B, C, D, E, F, G, H> AsyncMatch<M> for Branch<A, B, C, D, E, F, G, H>
 /// Future to do pattern matching of
 /// [`IterFold`](../../pattern/combinators/struct.IterFold.html) pattern.
 #[cfg_attr(feature = "cargo-clippy", allow(type_complexity))]
-pub struct MatchIterFold<M: Matcher, I, F, T>(Phase<(<I::Item as AsyncMatch<M>>::Future, I, T, F), (M, T)>)
+pub struct MatchIterFold<M: Matcher, I, F, T>
 where
     I: Iterator,
-    I::Item: AsyncMatch<M>;
+    I::Item: AsyncMatch<M>,
+{
+    phase: Phase<(<I::Item as AsyncMatch<M>>::Future, I, T, F), (M, T)>,
+}
 impl<M: Matcher, I, F, T> Future for MatchIterFold<M, I, F, T>
     where I: Iterator,
           I::Item: AsyncMatch<M>,
@@ -543,18 +546,18 @@ impl<M: Matcher, I, F, T> Future for MatchIterFold<M, I, F, T>
     type Item = (M, T);
     type Error = AsyncError<M, M::Error>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self.0.take() {
+        match self.phase.take() {
             Phase::A((mut f, mut iter, acc, fold)) => {
                 if let Async::Ready((m, v)) = f.poll()? {
                     let acc = fold(acc, v);
                     if let Some(p) = iter.next() {
-                        self.0 = Phase::A((p.async_match(m), iter, acc, fold));
+                        self.phase = Phase::A((p.async_match(m), iter, acc, fold));
                         self.poll()
                     } else {
                         Ok(Async::Ready((m, acc)))
                     }
                 } else {
-                    self.0 = Phase::A((f, iter, acc, fold));
+                    self.phase = Phase::A((f, iter, acc, fold));
                     Ok(Async::NotReady)
                 }
             }
@@ -572,9 +575,9 @@ impl<M: Matcher, I, F, T> AsyncMatch<M> for IterFold<I, F, T>
     fn async_match(self, matcher: M) -> Self::Future {
         let (mut iter, fold, acc) = self.unwrap();
         if let Some(p) = iter.next() {
-            MatchIterFold(Phase::A((p.async_match(matcher), iter, acc, fold)))
+            MatchIterFold{ phase: Phase::A((p.async_match(matcher), iter, acc, fold)) }
         } else {
-            MatchIterFold(Phase::B((matcher, acc)))
+            MatchIterFold{ phase: Phase::B((matcher, acc)) }
         }
     }
 }

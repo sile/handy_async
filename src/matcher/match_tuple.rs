@@ -26,12 +26,15 @@ where
 /// Future to do pattern matching of
 /// [Tuple3](../../pattern/combinators/type.Tuple3.html) pattern.
 #[cfg_attr(feature = "cargo-clippy", allow(type_complexity))]
-pub struct MatchTuple3<M, A, B, C>(Phase<(A::Future, B, C), (B::Future, C, A::Value), (C::Future, A::Value, B::Value)>)
+pub struct MatchTuple3<M, A, B, C>
 where
     M: Matcher,
     A: AsyncMatch<M>,
     B: AsyncMatch<M>,
-    C: AsyncMatch<M>;
+    C: AsyncMatch<M>,
+{
+    phase: Phase<(A::Future, B, C), (B::Future, C, A::Value), (C::Future, A::Value, B::Value)>,
+}
 #[cfg_attr(feature = "cargo-clippy", allow(type_complexity))]
 impl<M, A, B, C> Future for MatchTuple3<M, A, B, C>
 where
@@ -43,22 +46,22 @@ where
     type Item = (M, (A::Value, B::Value, C::Value));
     type Error = AsyncError<M, M::Error>;
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self.0.take() {
+        match self.phase.take() {
             Phase::A((mut future, b, c)) => {
                 if let Async::Ready((m, v)) = future.poll()? {
-                    self.0 = Phase::B((b.async_match(m), c, v));
+                    self.phase = Phase::B((b.async_match(m), c, v));
                     self.poll()
                 } else {
-                    self.0 = Phase::A((future, b, c));
+                    self.phase = Phase::A((future, b, c));
                     Ok(Async::NotReady)
                 }
             }
             Phase::B((mut future, c, a)) => {
                 if let Async::Ready((m, v)) = future.poll()? {
-                    self.0 = Phase::C((c.async_match(m), a, v));
+                    self.phase = Phase::C((c.async_match(m), a, v));
                     self.poll()
                 } else {
-                    self.0 = Phase::B((future, c, a));
+                    self.phase = Phase::B((future, c, a));
                     Ok(Async::NotReady)
                 }
             }
@@ -66,7 +69,7 @@ where
                 if let Async::Ready((m, v)) = future.poll()? {
                     Ok(Async::Ready((m, (a, b, v))))
                 } else {
-                    self.0 = Phase::C((future, a, b));
+                    self.phase = Phase::C((future, a, b));
                     Ok(Async::NotReady)
                 }
             }
@@ -84,7 +87,7 @@ where
     type Future = MatchTuple3<M, A, B, C>;
     fn async_match(self, matcher: M) -> Self::Future {
         let (a, b, c) = self;
-        MatchTuple3(Phase::A((a.async_match(matcher), b, c)))
+        MatchTuple3 { phase: Phase::A((a.async_match(matcher), b, c)) }
     }
 }
 
