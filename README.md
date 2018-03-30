@@ -6,6 +6,12 @@ handy_async
 [![Build Status](https://travis-ci.org/sile/handy_async.svg?branch=master)](https://travis-ci.org/sile/handy_async)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+---
+
+**NOTICE**: [bytecodec](https://github.com/sile/bytecodec) is more recommended for implementing protocols that support asynchronous I/O.
+
+---
+
 This library provides miscellaneous functionalities to help asynchronous operations in Rust.
 
 [Documentation](https://docs.rs/handy_async)
